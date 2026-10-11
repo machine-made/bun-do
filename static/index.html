@@ -625,7 +625,26 @@ body {
   color: var(--text-dim);
   margin-top: 4px;
 }
-
+.recurrence-interval {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.recurrence-interval input {
+  width: 56px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px 6px;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-family: var(--font);
+  outline: none;
+}
+.recurrence-interval input:focus { border-color: var(--accent); }
 /* ── Calendar Grid ──────────────────────────── */
 .calendar {
   margin-bottom: 20px;
@@ -1861,10 +1880,15 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
           <label class="form-label">Recurrence</label>
           <select class="form-select" x-model="form.recurrenceType" @change="updateRecurrenceFromForm()">
             <option value="none">None</option>
+            <option value="daily">Daily</option>
+            <option value="weekdays">Weekdays</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
             <option value="yearly">Yearly</option>
           </select>
+          <div class="recurrence-interval" x-show="['daily','weekly','monthly','yearly'].includes(form.recurrenceType)">
+            Every <input type="number" min="1" max="99" x-model.number="form.recurrenceInterval" @input="updateRecurrenceFromForm()">
+          </div>
           <div class="recurrence-hint" x-show="form.recurrenceType !== 'none'" x-text="recurrenceHint()"></div>
         </div>
         <div class="form-group">
@@ -1935,7 +1959,7 @@ function todoApp() {
   const CURRENCY_SYMBOLS = { CHF: 'CHF ', USD: '$', EUR: '€', BRL: 'R$' };
   function currencySymbol(code) { return CURRENCY_SYMBOLS[code] || code + ' '; }
   function defaultForm() {
-    return { title: '', date: todayStr, priority: 'P2', notes: '', tags: '', type: 'task', recurrenceType: 'none', recurrence: null, amount: '', currency: 'CHF' };
+    return { title: '', date: todayStr, priority: 'P2', notes: '', tags: '', type: 'task', recurrenceType: 'none', recurrenceInterval: 1, recurrence: null, amount: '', currency: 'CHF' };
   }
 
   function normalizeTag(raw) {
@@ -2043,12 +2067,14 @@ function todoApp() {
     async cycleRecurrence(task) {
       if (task.done) return;
       const d = parseDate(task.date);
-      const cycle = [null, 'weekly', 'monthly', 'yearly'];
+      const cycle = [null, 'daily', 'weekdays', 'weekly', 'monthly', 'yearly'];
       const currentType = task.recurrence ? task.recurrence.type : null;
       const idx = cycle.indexOf(currentType);
       const nextType = cycle[(idx + 1) % cycle.length];
       let recurrence = null;
-      if (nextType === 'weekly') {
+      if (nextType === 'daily' || nextType === 'weekdays') {
+        recurrence = { type: nextType };
+      } else if (nextType === 'weekly') {
         recurrence = { type: 'weekly', dow: (d.getDay() + 6) % 7 };
       } else if (nextType === 'monthly') {
         recurrence = { type: 'monthly', day: d.getDate() };
@@ -2862,35 +2888,55 @@ function todoApp() {
     recurrenceLabel(task) {
       if (!task.recurrence) return '';
       const r = task.recurrence;
-      if (r.type === 'weekly') return 'Every ' + (DAYS_MON_FIRST[r.dow] || 'week');
-      if (r.type === 'monthly') return 'Every month on the ' + ordinal(r.day);
-      if (r.type === 'yearly') return 'Every year on ' + MONTHS_SHORT[r.month - 1] + ' ' + r.day;
+      const n = r.interval || 1;
+      if (r.type === 'daily') return n === 1 ? 'Every day' : 'Every ' + n + ' days';
+      if (r.type === 'weekdays') return 'Every weekday';
+      if (r.type === 'weekly') {
+        const day = DAYS_MON_FIRST[r.dow];
+        if (n === 1) return day ? 'Every ' + day : 'Every week';
+        return day ? 'Every ' + n + ' weeks on ' + day : 'Every ' + n + ' weeks';
+      }
+      if (r.type === 'monthly') {
+        const base = n === 1 ? 'Every month' : 'Every ' + n + ' months';
+        return r.day ? base + ' on the ' + ordinal(r.day) : base;
+      }
+      if (r.type === 'yearly') {
+        const base = n === 1 ? 'Every year' : 'Every ' + n + ' years';
+        return MONTHS_SHORT[r.month - 1] && r.day ? base + ' on ' + MONTHS_SHORT[r.month - 1] + ' ' + r.day : base;
+      }
       return 'Recurring';
     },
 
     // ── Recurrence Form Helpers ─────────────
     updateRecurrenceFromForm() {
-      if (this.form.recurrenceType === 'none') {
+      const type = this.form.recurrenceType;
+      if (type === 'none') {
         this.form.recurrence = null;
         return;
       }
-      const d = parseDate(this.form.date || todayStr);
-      if (this.form.recurrenceType === 'weekly') {
-        this.form.recurrence = { type: 'weekly', dow: (d.getDay() + 6) % 7 };
-      } else if (this.form.recurrenceType === 'monthly') {
-        this.form.recurrence = { type: 'monthly', day: d.getDate() };
-      } else if (this.form.recurrenceType === 'yearly') {
-        this.form.recurrence = { type: 'yearly', month: d.getMonth() + 1, day: d.getDate() };
+      if (type === 'daily' || type === 'weekdays') {
+        const rule = { type };
+        if (type === 'daily') {
+          const n = Math.min(99, Math.max(1, parseInt(this.form.recurrenceInterval) || 1));
+          if (n > 1) rule.interval = n;
+        }
+        this.form.recurrence = rule;
+        return;
       }
+      const d = parseDate(this.form.date || todayStr);
+      const n = Math.min(99, Math.max(1, parseInt(this.form.recurrenceInterval) || 1));
+      const rule = type === 'weekly'
+        ? { type, dow: (d.getDay() + 6) % 7 }
+        : type === 'monthly'
+          ? { type, day: d.getDate() }
+          : { type, month: d.getMonth() + 1, day: d.getDate() };
+      if (n > 1) rule.interval = n;
+      this.form.recurrence = rule;
     },
 
     recurrenceHint() {
       if (this.form.recurrenceType === 'none' || !this.form.date) return '';
-      const d = parseDate(this.form.date);
-      if (this.form.recurrenceType === 'weekly') return 'Every ' + DAYS_FULL[d.getDay()];
-      if (this.form.recurrenceType === 'monthly') return 'Every month on the ' + ordinal(d.getDate());
-      if (this.form.recurrenceType === 'yearly') return 'Every year on ' + MONTHS_FULL[d.getMonth()] + ' ' + d.getDate();
-      return '';
+      return this.recurrenceLabel({ recurrence: this.form.recurrence || { type: this.form.recurrenceType } });
     },
 
     // ── Modal ──────────────────────────────

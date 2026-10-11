@@ -66,13 +66,14 @@ const TOOLS = [
         },
         recurrence: {
           description:
-            "Recurrence rule, or null for none. weekly uses dow (0 = Monday .. 6 = Sunday); monthly uses day (1-31); yearly uses month (1-12) and day.",
+            "Recurrence rule, or null for none. daily repeats every N days, weekdays Monday to Friday, weekly uses dow (0 = Monday .. 6 = Sunday), monthly uses day (1-31), yearly uses month (1-12) and day. interval (1-99) applies to daily, weekly, monthly and yearly. A missing anchor (dow, day, month) is taken from the task's date.",
           anyOf: [
             { type: "null" },
             {
               type: "object",
               properties: {
-                type: { type: "string", enum: ["weekly", "monthly", "yearly"] },
+                type: { type: "string", enum: ["daily", "weekdays", "weekly", "monthly", "yearly"] },
+                interval: { type: "number", description: "Repeat every N days, weeks, months or years (1-99, default 1)" },
                 dow: { type: "number", description: "Weekday for weekly, 0 = Monday .. 6 = Sunday" },
                 day: { type: "number", description: "Day of month for monthly or yearly, 1-31" },
                 month: { type: "number", description: "Month for yearly, 1-12" },
@@ -111,13 +112,14 @@ const TOOLS = [
         },
         recurrence: {
           description:
-            "Replaces the recurrence rule. Null clears it. weekly uses dow (0 = Monday .. 6 = Sunday); monthly uses day; yearly uses month and day.",
+            "Replaces the recurrence rule. Null clears it. daily repeats every N days, weekdays Monday to Friday, weekly uses dow (0 = Monday .. 6 = Sunday), monthly uses day, yearly uses month and day. interval (1-99) applies to daily, weekly, monthly and yearly.",
           anyOf: [
             { type: "null" },
             {
               type: "object",
               properties: {
-                type: { type: "string", enum: ["weekly", "monthly", "yearly"] },
+                type: { type: "string", enum: ["daily", "weekdays", "weekly", "monthly", "yearly"] },
+                interval: { type: "number", description: "Repeat every N days, weeks, months or years (1-99)" },
                 dow: { type: "number" },
                 day: { type: "number" },
                 month: { type: "number" },

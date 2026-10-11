@@ -27,7 +27,7 @@ Most todo apps want you to sign up, sync to the cloud, or install an Electron ap
 **Tasks**
 - Priorities P0 (critical) through P3 (backlog), with optional Eisenhower matrix labels
 - Types: task, deadline, reminder, payment
-- Recurring: weekly, monthly, yearly with auto-creation on completion
+- Recurring: daily, weekdays (Mon–Fri), weekly, monthly, yearly — every 1–99 days, weeks, months or years — with auto-creation on completion
 - Overdue tasks auto-carry to today (payments keep their original due date)
 - Inline click-to-edit for titles, notes, tags and subtask names
 - Undo delete with 10-second recovery window
@@ -226,6 +226,8 @@ On first run, `tasks.example.json` seeds `tasks.json` if it doesn't exist.
 | `DELETE` | `/api/projects/:id/entries/:eid` | Delete log entry |
 
 **Tags.** Each task has `tags`, a list of strings (empty when an older file has no tags). Create and update accept an array or one comma-separated string and replace the list. Values are trimmed, a leading `#` is removed, lower-cased, whitespace runs become `-`, and only letters, digits, `-` and `_` are kept (at most 32 characters, 10 per task, no duplicates). `GET /api/tasks?tag=work` filters; the value is normalised the same way, so `#WORK` matches `work`.
+
+**Recurrence.** A task's `recurrence` is `null` or `{"type": "daily"|"weekdays"|"weekly"|"monthly"|"yearly", ...}`: `weekly` uses `dow` (0 = Monday .. 6 = Sunday), `monthly` uses `day` (1–31), `yearly` uses `month` (1–12) and `day`. An optional `interval` (1–99) repeats every N days, weeks, months or years for daily, weekly, monthly and yearly (`weekdays` accepts only 1); it is stored only above 1. A missing anchor (`dow`, `day`, `month`) is taken from the task's date, so a monthly rule on the 31st stays anchored to the 31st after a short month. An invalid rule is refused with 400 and a `detail` naming the field.
 
 MCP `add_task` and `update_task` accept `tags`, `recurrence`, `amount` and `currency`. `list_tasks` accepts an optional `tag`.
 

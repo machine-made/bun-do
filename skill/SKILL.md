@@ -70,14 +70,14 @@ bun-do is a local-first todo app. REST API at `http://localhost:8000`. All data 
   "done": false,
   "amount": "string (for payments)",
   "currency": "CHF | USD | EUR | BRL (default: CHF)",
-  "recurrence": null | {"type": "weekly", "dow": 0-6} | {"type": "monthly", "day": 1-31} | {"type": "yearly", "month": 1-12, "day": 1-31},
+  "recurrence": null | {"type": "daily", "interval": 1-99} | {"type": "weekdays"} | {"type": "weekly", "dow": 0-6, "interval": 1-99} | {"type": "monthly", "day": 1-31, "interval": 1-99} | {"type": "yearly", "month": 1-12, "day": 1-31, "interval": 1-99},
   "tags": ["travel", "home"]
 }
 ```
 
 **Priorities**: P0 = critical/drop everything, P1 = high/do today, P2 = normal, P3 = backlog (not on calendar).
 **Types**: `task` = actionable, `deadline` = hard date, `reminder` = FYI, `payment` = bill/invoice tracker.
-**Recurring**: When a recurring task is marked done, the next occurrence is auto-created.
+**Recurring**: When a recurring task is marked done, the next occurrence is auto-created. Types: `daily` (every N days), `weekdays` (Monday to Friday), `weekly` (on `dow`, 0 = Monday), `monthly` (on `day`), `yearly` (on `month` + `day`). `interval` (1-99, default 1) applies to daily, weekly, monthly and yearly — every N days, weeks, months or years — and is stored only above 1. A missing anchor (`dow`, `day`, `month`) is taken from the task's date. Create and update reject an invalid rule with a 400.
 **Tags**: a list of strings, or one comma-separated string. Normalised on create and update: trimmed, a leading `#` removed, lower case, whitespace runs become `-`, only letters, digits, `-` and `_`, at most 32 characters, at most 10 per task, duplicates dropped. Update replaces the list. Old files without `tags` load as `[]`. The next occurrence of a recurring task keeps its tags. `GET /api/tasks?tag=work` returns only tasks carrying that tag (`#WORK` matches `work`). Omit `tag` for the full list.
 
 **MCP** (`bun-do-mcp`): `add_task` and `update_task` accept `tags`, `recurrence`, `amount` and `currency` (same rules as the API). `list_tasks` accepts an optional `tag`. A failed tool call returns a result with `isError: true`, not a JSON-RPC error.

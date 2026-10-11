@@ -109,6 +109,39 @@ describe("mcp server", () => {
     expect(JSON.parse(updated[0].result.content[0].text).tags).toEqual(["home", "work"]);
   });
 
+  test("recurrence accepts the new types and interval", async () => {
+    const replies = await mcp([
+      { jsonrpc: "2.0", id: 1, method: "tools/list" },
+      {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "add_task", arguments: { title: "Weekday task", recurrence: { type: "weekdays" } } },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: {
+          name: "add_task",
+          arguments: { title: "Biweekly task", date: "2026-10-07", recurrence: { type: "weekly", interval: 2 } },
+        },
+      },
+    ]);
+    const byId = (id: number) => replies.find((r) => r.id === id);
+    const tools = byId(1).result.tools;
+    for (const name of ["add_task", "update_task"]) {
+      const tool = tools.find((t: { name: string }) => t.name === name);
+      const schema = tool.inputSchema.properties.recurrence.anyOf.find((s: { type: string }) => s.type === "object");
+      expect(schema.properties.type.enum).toEqual(["daily", "weekdays", "weekly", "monthly", "yearly"]);
+      expect(schema.properties.interval).toBeDefined();
+    }
+
+    expect(JSON.parse(byId(2).result.content[0].text).recurrence).toEqual({ type: "weekdays" });
+    // A weekly rule without dow takes it from the task's date (2026-10-07 is a Wednesday, dow 2).
+    expect(JSON.parse(byId(3).result.content[0].text).recurrence).toEqual({ type: "weekly", dow: 2, interval: 2 });
+  });
+
   test("a failed tool call is a result with isError, not a JSON-RPC error", async () => {
     const [reply] = await mcp([
       { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "update_task", arguments: { id: "no-such-id", done: true } } },

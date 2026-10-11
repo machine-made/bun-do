@@ -67,6 +67,7 @@ DELETE /api/projects/:id/entries/:eid    delete entry
 
 Priority: P0 = critical, P1 = high, P2 = normal, P3 = backlog.
 Backlog: `type=task` + `priority=P3` (shows in backlog panel, not calendar).
+Recurrence: `null` or `{"type": "daily"|"weekdays"|"weekly"|"monthly"|"yearly", "interval": 1-99, "dow": 0-6, "day": 1-31, "month": 1-12}`. `interval` applies to daily, weekly, monthly and yearly (weekdays only accepts 1) and is stored only above 1. `dow` is the weekly anchor (0 = Monday), `day` the monthly one, `month` + `day` the yearly one; a missing anchor is taken from the task's date. An invalid rule is a 400.
 Tags: a list, or one comma-separated string on create and update. Normalised on write: trimmed, a leading `#` removed, lower case, whitespace runs become `-`, only letters, digits, `-` and `_`, at most 32 characters, at most 10 per task, duplicates dropped. Missing tags on old files load as `[]`. `GET /api/tasks?tag=work` (also `#work`) returns only tasks carrying that tag; omit `tag` for the full list. The next occurrence of a recurring task keeps its tags.
 
 ## Common agent operations

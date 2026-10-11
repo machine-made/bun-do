@@ -154,6 +154,186 @@ describe("recurrence", () => {
     expect(next.subtasks[0].done).toBe(false);
     expect(next.subtasks[0].id).not.toBe(sub.id);
   });
+  test("daily repeats every N days", async () => {
+    const next = await completeAndFindNext({
+      title: "Water plants",
+      date: "2026-10-09",
+      recurrence: { type: "daily", interval: 3 },
+    });
+    expect(next.date).toBe("2026-10-12");
+    expect(next.recurrence).toEqual({ type: "daily", interval: 3 });
+  });
+
+  test("weekdays goes to the next Monday-to-Friday day", async () => {
+    // 2026-10-09 Friday, 10 Saturday, 11 Sunday, 12 Monday.
+    for (const [date, want] of [
+      ["2026-10-09", "2026-10-12"],
+      ["2026-10-10", "2026-10-12"],
+      ["2026-10-11", "2026-10-12"],
+      ["2026-10-12", "2026-10-13"],
+    ]) {
+      const next = await completeAndFindNext({ title: `Standup ${date}`, date, recurrence: { type: "weekdays" } });
+      expect(next.date).toBe(want);
+    }
+  });
+
+  test("weekly with an interval lands on the target weekday N weeks out", async () => {
+    // 2026-10-12 is a Monday: next Monday, then one more week.
+    const next = await completeAndFindNext({
+      title: "Biweekly review",
+      date: "2026-10-12",
+      recurrence: { type: "weekly", dow: 0, interval: 2 },
+    });
+    expect(next.date).toBe("2026-10-26");
+    expect(next.recurrence).toEqual({ type: "weekly", dow: 0, interval: 2 });
+  });
+
+  test("monthly with an interval clamps to the end of the target month", async () => {
+    const next = await completeAndFindNext({
+      title: "Quarterly rent",
+      date: "2026-01-31",
+      recurrence: { type: "monthly", day: 31, interval: 3 },
+    });
+    expect(next.date).toBe("2026-04-30");
+    expect(next.recurrence).toEqual({ type: "monthly", day: 31, interval: 3 });
+  });
+
+  test("monthly crosses the year end and keeps its anchor", async () => {
+    const next = await completeAndFindNext({
+      title: "Bimonthly bill",
+      date: "2026-11-30",
+      recurrence: { type: "monthly", day: 30, interval: 2 },
+    });
+    expect(next.date).toBe("2027-01-30");
+  });
+
+  test("yearly with an interval clamps a leap day in a non-leap year", async () => {
+    const next = await completeAndFindNext({
+      title: "Leapiversary",
+      date: "2028-02-29",
+      recurrence: { type: "yearly", month: 2, day: 29, interval: 2 },
+    });
+    expect(next.date).toBe("2030-02-28");
+    expect(next.recurrence).toEqual({ type: "yearly", month: 2, day: 29, interval: 2 });
+  });
+
+  test("a rule without its anchor takes it from the task's date", async () => {
+    const { body: monthly } = await api(server, "POST", "/api/tasks", {
+      title: "Anchored monthly",
+      date: "2026-01-31",
+      recurrence: { type: "monthly" },
+    });
+    expect(monthly.recurrence).toEqual({ type: "monthly", day: 31 });
+
+    const { body: yearly } = await api(server, "POST", "/api/tasks", {
+      title: "Anchored yearly",
+      date: "2028-02-29",
+      recurrence: { type: "yearly" },
+    });
+    expect(yearly.recurrence).toEqual({ type: "yearly", month: 2, day: 29 });
+
+    // 2026-10-07 is a Wednesday, dow 2.
+    const { body: weekly } = await api(server, "POST", "/api/tasks", {
+      title: "Anchored weekly",
+      date: "2026-10-07",
+      recurrence: { type: "weekly" },
+    });
+    expect(weekly.recurrence).toEqual({ type: "weekly", dow: 2 });
+
+    const updated = await api(server, "PUT", `/api/tasks/${monthly.id}`, { recurrence: { type: "yearly" } });
+    expect(updated.body.recurrence).toEqual({ type: "yearly", month: 1, day: 31 });
+  });
+
+  test("the anchored monthly rule does not drift after a short month", async () => {
+    const { body: task } = await api(server, "POST", "/api/tasks", {
+      title: "No drift",
+      date: "2026-01-31",
+      recurrence: { type: "monthly" },
+    });
+    await api(server, "PUT", `/api/tasks/${task.id}`, { done: true });
+    const feb = (await api(server, "GET", "/api/tasks")).body.tasks.find(
+      (t: { title: string; done: boolean }) => t.title === "No drift" && !t.done,
+    );
+    expect(feb.date).toBe("2026-02-28");
+    expect(feb.recurrence).toEqual({ type: "monthly", day: 31 });
+    await api(server, "PUT", `/api/tasks/${feb.id}`, { done: true });
+    const mar = (await api(server, "GET", "/api/tasks")).body.tasks.find(
+      (t: { title: string; done: boolean }) => t.title === "No drift" && !t.done,
+    );
+    expect(mar.date).toBe("2026-03-31");
+  });
+
+  test("create and update refuse an invalid rule with a 400 detail", async () => {
+    const cases: [Record<string, unknown>, string, string][] = [
+      [{ type: "hourly" }, "type", "daily"],
+      [{ type: "daily", interval: 0 }, "interval", "99"],
+      [{ type: "daily", interval: 100 }, "interval", "99"],
+      [{ type: "daily", interval: 1.5 }, "interval", "whole"],
+      [{ type: "weekly", dow: 7 }, "dow", "6"],
+      [{ type: "monthly", day: 32 }, "day", "31"],
+      [{ type: "yearly", month: 13, day: 1 }, "month", "12"],
+      [{ type: "weekdays", interval: 2 }, "interval", "1"],
+    ];
+    for (const [rule, field, allowed] of cases) {
+      const res = await api(server, "POST", "/api/tasks", { title: "Bad", recurrence: rule });
+      expect(res.status).toBe(400);
+      expect(res.body.detail).toContain(`recurrence.${field}`);
+      expect(res.body.detail).toContain(allowed);
+    }
+
+    const { body: task } = await api(server, "POST", "/api/tasks", { title: "Victim", notes: "keep me" });
+    const res = await api(server, "PUT", `/api/tasks/${task.id}`, {
+      notes: "must not be saved",
+      recurrence: { type: "daily", interval: 0 },
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.detail).toContain("recurrence.interval");
+    const fresh = (await api(server, "GET", "/api/tasks")).body.tasks.find(
+      (t: { id: string }) => t.id === task.id,
+    );
+    expect(fresh.notes).toBe("keep me");
+
+    const cleared = await api(server, "PUT", `/api/tasks/${task.id}`, { recurrence: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.recurrence).toBeNull();
+  });
+
+  test("interval 1 is not stored and an update without recurrence keeps it", async () => {
+    const { body: task } = await api(server, "POST", "/api/tasks", {
+      title: "Interval one",
+      date: "2026-10-07",
+      recurrence: { type: "weekly", interval: 1 },
+    });
+    expect(task.recurrence).toEqual({ type: "weekly", dow: 2 });
+
+    const renamed = await api(server, "PUT", `/api/tasks/${task.id}`, { title: "Renamed" });
+    expect(renamed.body.recurrence).toEqual({ type: "weekly", dow: 2 });
+  });
+
+});
+
+describe("recurrence loading", () => {
+  test("an invalid stored rule loads as null and the file still loads", async () => {
+    const seeded = await startServer({
+      tasks: [
+        { id: "bad-type", title: "Bad type", date: "2026-01-31", recurrence: { type: "hourly" } },
+        { id: "bad-day", title: "Bad day", date: "2026-01-31", recurrence: { type: "monthly", day: 32 } },
+        { id: "bad-shape", title: "Not an object", date: "2026-01-31", recurrence: "weekly" },
+        { id: "old", title: "Old monthly", date: "2026-01-31", recurrence: { type: "monthly", day: 31 } },
+      ],
+    });
+    try {
+      const { body } = await api(seeded, "GET", "/api/tasks");
+      const byId = (id: string) => body.tasks.find((t: { id: string }) => t.id === id);
+      expect(byId("bad-type").recurrence).toBeNull();
+      expect(byId("bad-day").recurrence).toBeNull();
+      expect(byId("bad-shape").recurrence).toBeNull();
+      // A stored pre-1.5 rule keeps its exact shape and meaning.
+      expect(byId("old").recurrence).toEqual({ type: "monthly", day: 31 });
+    } finally {
+      seeded.stop();
+    }
+  });
 });
 
 describe("carry-over", () => {

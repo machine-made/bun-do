@@ -158,4 +158,29 @@ describe.skipIf(!enabled)("web interface", () => {
       await page.close();
     }
   });
+
+  test("an every-2-weeks task created through the form shows its label", async () => {
+    const { page, errors } = await openApp();
+    const dayName = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" });
+    try {
+      await page.keyboard.press("n");
+      await page.getByPlaceholder("Task title").fill("Biweekly meeting");
+      await page.locator("select.form-select").selectOption("weekly");
+      await page.locator(".recurrence-interval input").fill("2");
+      await page.getByRole("button", { name: "Add task" }).click();
+
+      const { body } = await api(server, "GET", "/api/tasks");
+      const created = body.tasks.find((t: { title: string }) => t.title === "Biweekly meeting");
+      expect(created.recurrence).toEqual({ type: "weekly", dow: (new Date(`${today}T12:00:00`).getDay() + 6) % 7, interval: 2 });
+
+      const row = page.locator(".task-row", { hasText: "Biweekly meeting" }).first();
+      await row.waitFor({ timeout: 3000 });
+      const icon = row.locator(".recurrence-icon");
+      await icon.waitFor({ state: "visible", timeout: 3000 });
+      expect(await icon.getAttribute("title")).toBe(`Every 2 weeks on ${dayName}`);
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
 });

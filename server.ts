@@ -14,10 +14,11 @@ interface Subtask {
 }
 
 interface Recurrence {
-  type: "weekly" | "monthly" | "yearly";
+  type: "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
   day?: number;
   dow?: number;
   month?: number;
+  interval?: number;
 }
 
 interface Task {
@@ -65,19 +66,85 @@ const PRIORITY_LABELS = ["P0", "P1", "P2", "P3"] as const;
 const PRIORITY_ORDER: Record<string, number> = { P0: 0, P1: 1, P2: 2, P3: 3 };
 const TASK_TYPES = ["task", "deadline", "reminder", "payment"] as const;
 const CURRENCIES = ["CHF", "USD", "EUR", "BRL"];
-const RECURRENCE_TYPES = ["weekly", "monthly", "yearly"];
+const RECURRENCE_TYPES = ["daily", "weekdays", "weekly", "monthly", "yearly"];
 const PROJECT_STATUSES = ["active", "paused", "completed", "archived"] as const;
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
+/** Why a recurrence rule is invalid, or null when it is valid. */
+function recurrenceError(r: Record<string, unknown>): string | null {
+  if (!RECURRENCE_TYPES.includes(r.type as string)) {
+    return `recurrence.type must be one of: ${RECURRENCE_TYPES.join(", ")}`;
+  }
+  if (r.interval !== undefined) {
+    if (!Number.isInteger(r.interval) || (r.interval as number) < 1 || (r.interval as number) > 99) {
+      return "recurrence.interval must be a whole number between 1 and 99";
+    }
+    if (r.type === "weekdays" && r.interval !== 1) {
+      return "recurrence.interval must be 1 for weekdays";
+    }
+  }
+  if (r.dow !== undefined && (!Number.isInteger(r.dow) || (r.dow as number) < 0 || (r.dow as number) > 6)) {
+    return "recurrence.dow must be a whole number between 0 and 6 (0 = Monday)";
+  }
+  if (r.day !== undefined && (!Number.isInteger(r.day) || (r.day as number) < 1 || (r.day as number) > 31)) {
+    return "recurrence.day must be a whole number between 1 and 31";
+  }
+  if (r.month !== undefined && (!Number.isInteger(r.month) || (r.month as number) < 1 || (r.month as number) > 12)) {
+    return "recurrence.month must be a whole number between 1 and 12";
+  }
+  return null;
+}
+
+/** Lenient, for stored files: an invalid rule becomes null so the file still loads. */
 function sanitizeRecurrence(raw: unknown): Recurrence | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  if (!RECURRENCE_TYPES.includes(r.type as string)) return null;
+  if (recurrenceError(r)) return null;
   return {
     type: r.type as Recurrence["type"],
-    ...(r.day !== undefined && { day: Number(r.day) }),
-    ...(r.dow !== undefined && { dow: Number(r.dow) }),
-    ...(r.month !== undefined && { month: Number(r.month) }),
+    ...(r.day !== undefined && { day: r.day as number }),
+    ...(r.dow !== undefined && { dow: r.dow as number }),
+    ...(r.month !== undefined && { month: r.month as number }),
+    ...(r.interval !== undefined && { interval: r.interval as number }),
+  };
+}
+
+/**
+ * Strict, for API writes. Returns the error detail string on an invalid rule, null when
+ * raw is null/absent. A rule without its anchor takes it from the task's date
+ * (weekly dow, monthly day, yearly month and day), which stops it drifting after a
+ * short month. interval is stored only when it is above 1.
+ */
+function parseRecurrence(raw: unknown, date: string): Recurrence | null | string {
+  if (raw == null) return null;
+  if (typeof raw !== "object") return "recurrence must be an object or null";
+  const r = raw as Record<string, unknown>;
+  const error = recurrenceError(r);
+  if (error) return error;
+  const [y, m, d] = date.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  // Resolve missing anchors from the task's date before building, so the stored
+  // keys keep the same order sanitizeRecurrence writes after a load.
+  const type = r.type as Recurrence["type"];
+  const day =
+    r.day !== undefined ? (r.day as number)
+    : type === "monthly" || type === "yearly" ? d
+    : undefined;
+  const weekDow =
+    r.dow !== undefined ? (r.dow as number)
+    : type === "weekly" ? (dow === 0 ? 6 : dow - 1)
+    : undefined;
+  const month =
+    r.month !== undefined ? (r.month as number)
+    : type === "yearly" ? m
+    : undefined;
+  return {
+    type,
+    ...(day !== undefined && { day }),
+    ...(weekDow !== undefined && { dow: weekDow }),
+    ...(month !== undefined && { month }),
+    ...((r.interval as number | undefined) !== undefined &&
+      (r.interval as number) > 1 && { interval: r.interval as number }),
   };
 }
 
@@ -180,28 +247,39 @@ function nextOccurrence(currentDate: string, recurrence: Recurrence): string {
   const [y, m, d] = currentDate.split("-").map(Number);
   const date = new Date(y, m - 1, d);
   const rtype = recurrence.type;
+  const n = recurrence.interval ?? 1;
+
+  if (rtype === "daily") {
+    const next = new Date(date);
+    next.setDate(next.getDate() + n);
+    return formatDate(next);
+  }
+
+  if (rtype === "weekdays") {
+    // Next Monday-to-Friday day: Friday +3, Saturday +2, otherwise +1.
+    const currentDow = date.getDay() === 0 ? 6 : date.getDay() - 1;
+    const next = new Date(date);
+    next.setDate(next.getDate() + (currentDow >= 4 ? 7 - currentDow : 1));
+    return formatDate(next);
+  }
 
   if (rtype === "weekly") {
     const dow = recurrence.dow ?? (date.getDay() === 0 ? 6 : date.getDay() - 1);
     // Convert JS day (0=Sun) to Mon-based (0=Mon)
     const currentDow = date.getDay() === 0 ? 6 : date.getDay() - 1;
+    // RFC 5545 FREQ=WEEKLY;INTERVAL=N;BYDAY: the next matching day, then N-1 more weeks.
     let daysAhead = dow - currentDow;
     if (daysAhead <= 0) daysAhead += 7;
     const next = new Date(date);
-    next.setDate(next.getDate() + daysAhead);
+    next.setDate(next.getDate() + daysAhead + (n - 1) * 7);
     return formatDate(next);
   }
 
   if (rtype === "monthly") {
     const day = recurrence.day ?? d;
-    let nextMonth = m;
-    let nextYear = y;
-    if (nextMonth === 12) {
-      nextMonth = 1;
-      nextYear++;
-    } else {
-      nextMonth++;
-    }
+    const total = m - 1 + n;
+    const nextYear = y + Math.floor(total / 12);
+    const nextMonth = (total % 12) + 1;
     const maxDay = daysInMonth(nextYear, nextMonth);
     return `${nextYear}-${String(nextMonth).padStart(2, "0")}-${String(Math.min(day, maxDay)).padStart(2, "0")}`;
   }
@@ -209,7 +287,7 @@ function nextOccurrence(currentDate: string, recurrence: Recurrence): string {
   if (rtype === "yearly") {
     const month = recurrence.month ?? m;
     const day = recurrence.day ?? d;
-    const nextYear = y + 1;
+    const nextYear = y + n;
     const maxDay = daysInMonth(nextYear, month);
     return `${nextYear}-${String(month).padStart(2, "0")}-${String(Math.min(day, maxDay)).padStart(2, "0")}`;
   }
@@ -388,16 +466,19 @@ function handleGetTasks(url: URL): Response {
 
 async function handleCreateTask(req: Request): Promise<Response> {
   const body = await parseJson(req);
+  const date = isoToDate(body.date);
+  const recurrence = parseRecurrence(body.recurrence, date);
+  if (typeof recurrence === "string") return json({ detail: recurrence }, 400);
   const newTask: Task = {
     id: crypto.randomUUID(),
     title: String(body.title ?? "").trim() || "Untitled task",
-    date: isoToDate(body.date),
+    date,
     priority: PRIORITY_LABELS.includes(body.priority) ? body.priority : "P2",
     notes: String(body.notes ?? "").trim(),
     done: false,
     type: TASK_TYPES.includes(body.type) ? body.type : "task",
     subtasks: [],
-    recurrence: sanitizeRecurrence(body.recurrence),
+    recurrence,
     sort_order: 0,
     amount: String(body.amount ?? "").trim(),
     currency: validCurrency(body.currency),
@@ -434,6 +515,12 @@ async function handleUpdateTask(taskId: string, req: Request): Promise<Response>
   const task = findTask(taskId);
   if (!task) return notFound("Task not found");
 
+  // Validate the rule first so a 400 leaves every field untouched.
+  const recurrence = body.recurrence === undefined
+    ? undefined
+    : parseRecurrence(body.recurrence, body.date === undefined ? task.date : isoToDate(body.date));
+  if (typeof recurrence === "string") return json({ detail: recurrence }, 400);
+
   if (body.title !== undefined) task.title = String(body.title).trim() || task.title;
   if (body.date !== undefined) task.date = isoToDate(body.date);
   if (body.priority !== undefined && PRIORITY_LABELS.includes(body.priority)) task.priority = body.priority;
@@ -442,7 +529,7 @@ async function handleUpdateTask(taskId: string, req: Request): Promise<Response>
   if (body.amount !== undefined) task.amount = String(body.amount).trim();
   if (body.currency !== undefined && CURRENCIES.includes(body.currency)) task.currency = body.currency;
   if (body.tags !== undefined) task.tags = normalizeTags(body.tags);
-  if (body.recurrence !== undefined) task.recurrence = sanitizeRecurrence(body.recurrence);
+  if (recurrence !== undefined) task.recurrence = recurrence;
   if (body.done !== undefined) {
     const wasDone = task.done;
     task.done = Boolean(body.done);
