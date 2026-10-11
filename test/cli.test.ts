@@ -88,7 +88,12 @@ describe("cli", () => {
     expect(content).toContain("Restored Offline");
 
     // Check before-restore copy exists holding Initial Task
-    const beforeRestore = readdirSync(bdir).filter((f) => f.includes("before-restore"));
+    // The directory is shared with the earlier restore test, so take the newest copy by name
+    // (the time stamp in the name sorts correctly); readdirSync order is not defined.
+    const beforeRestore = readdirSync(bdir)
+      .filter((f) => f.includes("before-restore"))
+      .sort()
+      .reverse();
     expect(beforeRestore.length).toBeGreaterThan(0);
     const beforeContent = readFileSync(join(bdir, beforeRestore[0]), "utf-8");
     expect(beforeContent).toContain("Initial Task");
