@@ -3,6 +3,8 @@
 // or point BUNDO_CHROME at an installed Chrome.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "fs";
+import { join } from "path";
 import type { Browser, Page } from "playwright-core";
 import { api, localDate, startServer, type TestServer } from "../helpers";
 
@@ -178,6 +180,37 @@ describe.skipIf(!enabled)("web interface", () => {
       const icon = row.locator(".recurrence-icon");
       await icon.waitFor({ state: "visible", timeout: 3000 });
       expect(await icon.getAttribute("title")).toBe(`Every 2 weeks on ${dayName}`);
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
+
+  test("backups dialog opens from header, lists backups, and restores after confirmation", async () => {
+    const bdir = join(server.dataDir, "backups");
+    mkdirSync(bdir, { recursive: true });
+    writeFileSync(
+      join(bdir, "tasks-2026-01-05.json"),
+      JSON.stringify([{ id: "backup-task-1", title: "Restored From E2E Backup", date: today, priority: "P1", type: "task", done: false, subtasks: [], tags: [] }]),
+    );
+
+    const { page, errors } = await openApp();
+    try {
+      page.on("dialog", (dialog) => dialog.accept());
+
+      await page.getByRole("button", { name: "Backups" }).click();
+
+      const modal = page.locator(".modal", { hasText: "Backups" });
+      await modal.waitFor({ state: "visible", timeout: 3000 });
+      expect(await modal.textContent()).toContain("tasks-2026-01-05.json");
+      await modal.locator("div").filter({ hasText: "tasks-2026-01-05.json" }).getByRole("button", { name: "Restore" }).last().click();
+      const toast = page.locator(".toast.visible");
+      await toast.waitFor({ timeout: 5000 });
+      expect(await toast.textContent()).toContain("Restored tasks-2026-01-05.json");
+
+      const restoredRow = page.getByText("Restored From E2E Backup").first();
+      await restoredRow.waitFor({ state: "visible", timeout: 3000 });
+
       expect(errors).toEqual([]);
     } finally {
       await page.close();

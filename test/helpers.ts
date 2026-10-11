@@ -1,6 +1,6 @@
 // Test helpers: start a real bun-do server on a free port with its own data directory.
 
-import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
@@ -15,12 +15,26 @@ export interface TestServer {
 
 /** Start server.ts with an empty task list unless `tasks` is given. */
 export async function startServer(
-  options: { tasks?: unknown; env?: Record<string, string> } = {},
+  options: {
+    tasks?: unknown;
+    projects?: unknown;
+    rawTasks?: string;
+    rawProjects?: string;
+    env?: Record<string, string>;
+    dataDir?: string;
+  } = {},
 ): Promise<TestServer> {
-  const dataDir = mkdtempSync(join(tmpdir(), "bun-do-test-"));
-  writeFileSync(join(dataDir, "tasks.json"), JSON.stringify(options.tasks ?? []));
-  writeFileSync(join(dataDir, "projects.json"), "[]");
-
+  const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), "bun-do-test-"));
+  if (options.rawTasks !== undefined) {
+    writeFileSync(join(dataDir, "tasks.json"), options.rawTasks);
+  } else if (!existsSync(join(dataDir, "tasks.json"))) {
+    writeFileSync(join(dataDir, "tasks.json"), JSON.stringify(options.tasks ?? []));
+  }
+  if (options.rawProjects !== undefined) {
+    writeFileSync(join(dataDir, "projects.json"), options.rawProjects);
+  } else if (!existsSync(join(dataDir, "projects.json"))) {
+    writeFileSync(join(dataDir, "projects.json"), JSON.stringify(options.projects ?? []));
+  }
   const proc = Bun.spawn(["bun", join(ROOT, "server.ts"), "--port=0"], {
     env: { ...process.env, BUNDO_DATA_DIR: dataDir, ...options.env },
     stdout: "pipe",

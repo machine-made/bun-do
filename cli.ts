@@ -10,6 +10,9 @@ import {
   mkdirSync,
   openSync,
   copyFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
 } from "fs";
 import { spawn } from "child_process";
 import { createConnection } from "net";
@@ -39,11 +42,27 @@ if (args.includes("--serve")) {
 // Parse command and --port
 const command =
   args.find((a) =>
-    ["start", "stop", "restart", "status", "open", "app", "install-skill"].includes(a)
+    ["start", "stop", "restart", "status", "open", "app", "install-skill", "backups", "restore"].includes(a)
   ) || "start";
 const portArgs = args.filter((a) => a.startsWith("--port="));
 const port = portArgs[0]?.split("=")[1] || "8000";
 const url = `http://localhost:${port}`;
+const BACKUPS_DIR = join(DATA_DIR, "backups");
+const BACKUP_FILENAME_RE = /^(tasks|projects)-(\d{4}-\d{2}-\d{2})(T\d{6}-before-restore)?\.json$/;
+
+function formatDateTimeBeforeRestore(d = new Date()): string {
+  const datePart =
+    d.getFullYear() +
+    "-" +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(d.getDate()).padStart(2, "0");
+  const timePart =
+    String(d.getHours()).padStart(2, "0") +
+    String(d.getMinutes()).padStart(2, "0") +
+    String(d.getSeconds()).padStart(2, "0");
+  return `${datePart}T${timePart}`;
+}
 
 function getPid(): number | null {
   if (!existsSync(PID_FILE)) return null;
@@ -197,6 +216,166 @@ function installSkill() {
   }
 }
 
+function listBackups(): void {
+  if (!existsSync(BACKUPS_DIR)) {
+    console.log("[bun-do] no backups found");
+    return;
+  }
+  try {
+    const files = readdirSync(BACKUPS_DIR)
+      .filter((f) => BACKUP_FILENAME_RE.test(f))
+      .sort((a, b) => {
+        const ka = a.replace(/^(tasks|projects)-/, "");
+        const kb = b.replace(/^(tasks|projects)-/, "");
+        return kb.localeCompare(ka) || a.localeCompare(b);
+      });
+    if (files.length === 0) {
+      console.log("[bun-do] no backups found");
+      return;
+    }
+    for (const f of files) {
+      const full = join(BACKUPS_DIR, f);
+      let entries = 0;
+      let size = 0;
+      try {
+        const stat = statSync(full);
+        size = stat.size;
+        const content = readFileSync(full, "utf-8");
+        const parsed: unknown = JSON.parse(content);
+        if (Array.isArray(parsed)) {
+          entries = parsed.length;
+        } else if (parsed && typeof parsed === "object") {
+          if ("tasks" in parsed && Array.isArray(parsed.tasks)) entries = parsed.tasks.length;
+          else if ("projects" in parsed && Array.isArray(parsed.projects)) entries = parsed.projects.length;
+        }
+      } catch {}
+      const m = f.match(BACKUP_FILENAME_RE);
+      const kind = m ? m[1] : "tasks";
+      console.log(`${f}  (${entries} ${kind === "tasks" ? "tasks" : "projects"}, ${size} bytes)`);
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[bun-do] error listing backups: ${msg}`);
+    process.exit(1);
+  }
+}
+
+async function isServerUp(targetUrl: string): Promise<boolean> {
+  const pid = getPid();
+  if (!pid || !isRunning(pid)) return false;
+  try {
+    const res = await fetch(`${targetUrl}/api/tasks`, { signal: AbortSignal.timeout(500) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function restoreViaApi(targetUrl: string, file: string): Promise<void> {
+  try {
+    const res = await fetch(`${targetUrl}/api/backups/restore`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file }),
+    });
+    if (res.ok) {
+      console.log(`[bun-do] restored ${file}`);
+      return;
+    }
+    const body: unknown = await res.json().catch(() => ({}));
+    let detail = "restore failed";
+    if (body && typeof body === "object" && "detail" in body && typeof body.detail === "string") {
+      detail = body.detail;
+    }
+    console.error(`[bun-do] error: ${detail}`);
+    process.exit(1);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[bun-do] error connecting to server: ${msg}`);
+    process.exit(1);
+  }
+}
+
+function restoreDirect(file: string): void {
+  if (file.includes("/") || file.includes("\\") || file.includes("..")) {
+    console.error("[bun-do] error: file must be a bare file name without path");
+    process.exit(1);
+  }
+
+  const match = file.match(BACKUP_FILENAME_RE);
+  if (!match) {
+    console.error("[bun-do] error: file name must match the backup pattern");
+    process.exit(1);
+  }
+
+  const backupPath = join(BACKUPS_DIR, file);
+  if (!existsSync(backupPath)) {
+    console.error(`[bun-do] error: backup file not found: ${file}`);
+    process.exit(1);
+  }
+
+  let parsed: unknown;
+  try {
+    const content = readFileSync(backupPath, "utf-8");
+    parsed = JSON.parse(content);
+  } catch {
+    console.error(`[bun-do] error: backup file is unreadable or not valid JSON: ${file}`);
+    process.exit(1);
+  }
+
+  const kind = match[1] as "tasks" | "projects";
+  let isValid = false;
+  if (kind === "tasks") {
+    if (Array.isArray(parsed) || (parsed && typeof parsed === "object" && "tasks" in parsed && Array.isArray(parsed.tasks))) {
+      isValid = true;
+    }
+  } else {
+    if (Array.isArray(parsed) || (parsed && typeof parsed === "object" && "projects" in parsed && Array.isArray(parsed.projects))) {
+      isValid = true;
+    }
+  }
+
+  if (!isValid) {
+    console.error(`[bun-do] error: backup file has invalid shape for ${kind}`);
+    process.exit(1);
+  }
+
+  if (!existsSync(BACKUPS_DIR)) mkdirSync(BACKUPS_DIR, { recursive: true });
+  const beforeRestoreName = `${kind}-${formatDateTimeBeforeRestore()}-before-restore.json`;
+  const beforeRestorePath = join(BACKUPS_DIR, beforeRestoreName);
+  const currentPath = join(DATA_DIR, `${kind}.json`);
+  if (existsSync(currentPath)) {
+    copyFileSync(currentPath, beforeRestorePath);
+  }
+
+  // Restore file first before retention, so restoring the oldest backup is never pruned before read
+  const tmp = currentPath + ".tmp";
+  const rawContent = readFileSync(backupPath, "utf-8");
+  writeFileSync(tmp, rawContent);
+  renameSync(tmp, currentPath);
+
+  const rawKeep = process.env.BUNDO_BACKUP_KEEP;
+  let keep = 30;
+  if (rawKeep !== undefined && rawKeep !== "") {
+    const trimmed = rawKeep.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const val = parseInt(trimmed, 10);
+      if (val >= 1) keep = val;
+    }
+  }
+  const backupFiles = readdirSync(BACKUPS_DIR)
+    .filter((f) => BACKUP_FILENAME_RE.exec(f)?.[1] === kind)
+    .sort()
+    .reverse();
+  if (backupFiles.length > keep) {
+    for (const f of backupFiles.slice(keep)) {
+      try { unlinkSync(join(BACKUPS_DIR, f)); } catch {}
+    }
+  }
+
+  console.log(`[bun-do] restored ${file}`);
+}
+
 switch (command) {
   case "start":
     await start();
@@ -221,5 +400,24 @@ switch (command) {
   case "install-skill":
     installSkill();
     break;
+  case "backups":
+    listBackups();
+    break;
+  case "restore": {
+    const restoreIdx = args.indexOf("restore");
+    const fileArg = restoreIdx !== -1 && args[restoreIdx + 1] && !args[restoreIdx + 1].startsWith("--")
+      ? args[restoreIdx + 1]
+      : undefined;
+    if (!fileArg) {
+      console.error("[bun-do] error: restore requires a backup file name");
+      process.exit(1);
+    }
+    if (await isServerUp(url)) {
+      await restoreViaApi(url, fileArg);
+    } else {
+      restoreDirect(fileArg);
+    }
+    break;
+  }
 }
 } // end else (service manager)

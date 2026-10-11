@@ -1196,6 +1196,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
       <template x-if="view !== 'projects'">
         <button class="btn-ghost" @click="clearDone()" title="Clear completed">Clear done</button>
       </template>
+      <button class="btn-ghost" @click="openBackupsModal()" title="Backups">Backups</button>
       <button class="btn-ghost" @click="adjustFontSize(-10)" title="Decrease font size" style="font-size:0.75rem;padding:5px 6px">A&#8722;</button>
       <button class="btn-ghost" @click="adjustFontSize(10)" title="Increase font size" style="font-size:0.75rem;padding:5px 6px">A+</button>
       <button class="btn-ghost" @click="togglePriorityMode()" :title="priorityMode === 'priority' ? 'Switch to Eisenhower matrix' : 'Switch to P0–P3 priorities'" x-text="priorityMode === 'priority' ? 'P0–P3' : 'Eisenhower'"></button>
@@ -1931,6 +1932,39 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
     </div>
   </div>
 
+  <!-- Backups Modal -->
+  <div class="modal-backdrop" x-show="showBackupsModal" x-transition.opacity @click.self="showBackupsModal = false" style="display:none">
+    <div class="modal" @click.stop x-show="showBackupsModal" x-transition style="max-width:560px;width:95%">
+      <div class="modal-title">
+        Backups
+        <button class="modal-close" @click="showBackupsModal = false">&times;</button>
+      </div>
+      <div style="margin-top:12px">
+        <div x-show="loadingBackups" style="color:var(--text-muted);font-size:0.85rem;padding:8px 0">Loading backups...</div>
+        <div x-show="!loadingBackups && backups.length === 0" style="color:var(--text-muted);font-size:0.85rem;padding:8px 0">No backups found.</div>
+        <div x-show="!loadingBackups && backups.length > 0" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
+          <template x-for="b in backups" :key="b.name">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;gap:8px">
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-weight:600;font-size:0.82rem;color:var(--text);word-break:break-all" x-text="b.name"></span>
+                  <span class="status-badge" style="font-size:0.68rem;padding:1px 6px;border-radius:4px;background:var(--border);color:var(--text-muted)" x-text="b.kind"></span>
+                </div>
+                <div style="font-size:0.75rem;color:var(--text-dim)">
+                  <span x-text="b.date"></span> &bull; <span x-text="b.entries + (b.kind === 'tasks' ? ' tasks' : ' projects')"></span> &bull; <span x-text="formatBytes(b.size)"></span>
+                </div>
+              </div>
+              <button type="button" class="btn-ghost" style="flex-shrink:0;font-size:0.75rem;padding:4px 8px" @click="restoreBackup(b)">Restore</button>
+            </div>
+          </template>
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top:16px">
+        <button type="button" class="btn-ghost" @click="showBackupsModal = false">Close</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -2005,6 +2039,9 @@ function todoApp() {
     showDone: false,
     showModal: false,
     showProjectModal: false,
+    showBackupsModal: false,
+    loadingBackups: false,
+    backups: [],
     selectedCalDay: null,
     showBacklog: true,
     showPayments: true,
@@ -2961,6 +2998,51 @@ function todoApp() {
       this.$nextTick(() => { this.$refs.projectNameInput && this.$refs.projectNameInput.focus(); });
     },
 
+    formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    },
+
+    async openBackupsModal() {
+      this.showBackupsModal = true;
+      this.loadingBackups = true;
+      try {
+        const res = await fetch('/api/backups');
+        const data = await res.json();
+        this.backups = data.backups || [];
+      } catch {
+        this.backups = [];
+        this.toast('Failed to load backups', 'error');
+      } finally {
+        this.loadingBackups = false;
+      }
+    },
+
+    async restoreBackup(b) {
+      if (!window.confirm(`Restore ${b.name}? Current ${b.kind} will be saved before restoring.`)) {
+        return;
+      }
+      try {
+        const res = await fetch('/api/backups/restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: b.name }),
+        });
+        if (res.ok) {
+          await this.fetchTasks();
+          await this.fetchProjects();
+          this.showBackupsModal = false;
+          this.toast(`Restored ${b.name}`);
+        } else {
+          const err = await res.json().catch(() => ({}));
+          this.toast(err.detail || 'Restore failed', 'error');
+        }
+      } catch {
+        this.toast('Restore failed', 'error');
+      }
+    },
+
     // ── Backlog Drag & Drop ────────────────
     _backlogSortables: {},
     _initBacklogSortable(refName) {
@@ -3102,6 +3184,7 @@ function todoApp() {
       if (event.key === 'Escape') {
         if (this.showModal) { this.showModal = false; return; }
         if (this.showProjectModal) { this.showProjectModal = false; return; }
+        if (this.showBackupsModal) { this.showBackupsModal = false; return; }
         if (this.editingTaskId) { this.editingTaskId = null; return; }
         if (this.editingNotesId) { this.editingNotesId = null; return; }
         if (this.editingSubtaskId) { this.editingSubtaskId = null; return; }

@@ -14,6 +14,7 @@ All data is stored in plain JSON files. Nothing leaves your machine.
 | `skill/SKILL.md` | Full API reference for skill-based agents |
 | `data/tasks.json` | Live task data (not committed) |
 | `data/projects.json` | Live project data (not committed) |
+| `data/backups/` | Automatic daily and before-restore backups (not committed) |
 
 ## Dev commands
 
@@ -26,9 +27,11 @@ bun cli.ts start     # background service (writes PID + log)
 bun cli.ts stop
 bun cli.ts restart
 bun cli.ts status
-```
+bun cli.ts backups   # list backups (works without running server)
+bun cli.ts restore <file> # restore backup (via API if running, else direct)
 
 Data directory: `BUNDO_DATA_DIR` env var (default `./data` in source, `~/.bun-do` when installed via npm).
+Backup retention: `BUNDO_BACKUP_KEEP` env var (default 30; must be a whole number of at least 1).
 
 ## API — quick reference
 
@@ -48,6 +51,8 @@ PUT    /api/projects/:id                 update project
 DELETE /api/projects/:id                 delete project
 POST   /api/projects/:id/entries         add progress entry
 DELETE /api/projects/:id/entries/:eid    delete entry
+GET    /api/backups                      list backups (newest first)
+POST   /api/backups/restore              restore backup ({ file })
 ```
 
 ## Task shape
@@ -69,6 +74,14 @@ Priority: P0 = critical, P1 = high, P2 = normal, P3 = backlog.
 Backlog: `type=task` + `priority=P3` (shows in backlog panel, not calendar).
 Recurrence: `null` or `{"type": "daily"|"weekdays"|"weekly"|"monthly"|"yearly", "interval": 1-99, "dow": 0-6, "day": 1-31, "month": 1-12}`. `interval` applies to daily, weekly, monthly and yearly (weekdays only accepts 1) and is stored only above 1. `dow` is the weekly anchor (0 = Monday), `day` the monthly one, `month` + `day` the yearly one; a missing anchor is taken from the task's date. An invalid rule is a 400.
 Tags: a list, or one comma-separated string on create and update. Normalised on write: trimmed, a leading `#` removed, lower case, whitespace runs become `-`, only letters, digits, `-` and `_`, at most 32 characters, at most 10 per task, duplicates dropped. Missing tags on old files load as `[]`. `GET /api/tasks?tag=work` (also `#work`) returns only tasks carrying that tag; omit `tag` for the full list. The next occurrence of a recurring task keeps its tags.
+
+## Backups & data safety
+
+Before the first write of each local calendar day to `tasks.json` (and, separately, to `projects.json`), the server copies the current file to `BUNDO_DATA_DIR/backups/` as `tasks-YYYY-MM-DD.json` (`projects-YYYY-MM-DD.json`). Later writes that day leave it alone. The newest `BUNDO_BACKUP_KEEP` backups of each kind are retained (default 30).
+
+`POST /api/backups/restore` with `{"file": "<name>"}` accepts only a bare name of the backup pattern. It first saves the current file as `<kind>-YYYY-MM-DDTHHMMSS-before-restore.json`, then loads the backup into memory and onto disk.
+
+At startup, an unreadable or invalidly shaped `tasks.json` or `projects.json` is renamed to `<kind>.corrupt-<YYYYMMDD-HHMMSS>.json` (byte-identical, never overwritten), the path is logged, and the newest readable backup of that kind is loaded (or an empty list if none).
 
 ## Common agent operations
 
@@ -111,6 +124,17 @@ for p in json.load(sys.stdin)['projects']: print(p['id'], p['name'])
 curl -s -X POST http://localhost:8000/api/projects/PROJECT_ID/entries \
   -H 'Content-Type: application/json' \
   -d '{"summary": "What was done"}'
+```
+
+**List and restore backups:**
+```bash
+# list backups
+curl -s http://localhost:8000/api/backups
+
+# restore a backup (saves current state as before-restore first)
+curl -s -X POST http://localhost:8000/api/backups/restore \
+  -H 'Content-Type: application/json' \
+  -d '{"file": "tasks-2026-01-05.json"}'
 ```
 
 ## Agent rules

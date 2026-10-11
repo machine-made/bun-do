@@ -1,5 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { readFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
+import { tmpdir } from "os";
 import { join } from "path";
 import { api, localDate, startServer, type TestServer } from "./helpers";
 
@@ -574,5 +583,214 @@ describe("tags", () => {
       (t: { title: string; done: boolean }) => t.title === "Gym tags" && !t.done,
     );
     expect(next.tags).toEqual(["health"]);
+  });
+});
+
+describe("backups", () => {
+  test("snapshot once a day saves state before first write and keeps it on second write", async () => {
+    const s = await startServer({ tasks: [{ id: "t1", title: "Initial Task", date: "2026-01-01" }] });
+    try {
+      const todayStr = localDate(Intl.DateTimeFormat().resolvedOptions().timeZone);
+      const backupFile = join(s.dataDir, "backups", `tasks-${todayStr}.json`);
+
+      // First write of the day
+      await api(s, "POST", "/api/tasks", { title: "Second Task" });
+      expect(existsSync(backupFile)).toBe(true);
+      const content1 = readFileSync(backupFile, "utf-8");
+      expect(content1).toContain("Initial Task");
+      expect(content1).not.toContain("Second Task");
+
+      // Second write of the day does not replace the snapshot
+      await api(s, "POST", "/api/tasks", { title: "Third Task" });
+      const content2 = readFileSync(backupFile, "utf-8");
+      expect(content2).toContain("Initial Task");
+      expect(content2).not.toContain("Third Task");
+    } finally {
+      s.stop();
+    }
+  });
+
+  test("retention keeps newest BUNDO_BACKUP_KEEP files and deletes older ones", async () => {
+    const s = await startServer({
+      tasks: [{ id: "t1", title: "Task 1" }],
+      env: { BUNDO_BACKUP_KEEP: "3" },
+    });
+    try {
+      const bdir = join(s.dataDir, "backups");
+      mkdirSync(bdir, { recursive: true });
+      for (const d of ["01", "02", "03", "04", "05"]) {
+        writeFileSync(join(bdir, `tasks-2026-01-${d}.json`), JSON.stringify([{ id: `old-${d}`, title: `Old ${d}` }]));
+      }
+
+      // Trigger write and retention
+      await api(s, "POST", "/api/tasks", { title: "New Task" });
+
+      const taskBackups = readdirSync(bdir).filter((f) => f.startsWith("tasks-"));
+      expect(taskBackups.length).toBe(3);
+      expect(existsSync(join(bdir, "tasks-2026-01-05.json"))).toBe(true);
+      expect(existsSync(join(bdir, "tasks-2026-01-04.json"))).toBe(true);
+      expect(existsSync(join(bdir, "tasks-2026-01-01.json"))).toBe(false);
+      expect(existsSync(join(bdir, "tasks-2026-01-02.json"))).toBe(false);
+    } finally {
+      s.stop();
+    }
+  });
+
+  test("retention never deletes a file that does not match the backup name pattern", async () => {
+    const s = await startServer({ env: { BUNDO_BACKUP_KEEP: "1" } });
+    try {
+      const bdir = join(s.dataDir, "backups");
+      mkdirSync(bdir, { recursive: true });
+      writeFileSync(join(bdir, "tasks-my-copy.json"), "[]");
+      writeFileSync(join(bdir, "tasks-2026-01-01.json"), "[]");
+      await api(s, "POST", "/api/tasks", { title: "Trigger" });
+      expect(existsSync(join(bdir, "tasks-my-copy.json"))).toBe(true);
+      expect(existsSync(join(bdir, "tasks-2026-01-01.json"))).toBe(false);
+    } finally {
+      s.stop();
+    }
+  });
+
+  test("listing GET /api/backups lists backups newest first with all required fields", async () => {
+    const s = await startServer();
+    try {
+      const bdir = join(s.dataDir, "backups");
+      mkdirSync(bdir, { recursive: true });
+      writeFileSync(join(bdir, "tasks-2026-01-02.json"), JSON.stringify([{ id: "1", title: "A" }]));
+      writeFileSync(join(bdir, "projects-2026-01-03.json"), JSON.stringify([{ id: "p1", name: "Proj" }]));
+      writeFileSync(join(bdir, "tasks-2026-01-05.json"), JSON.stringify([{ id: "2", title: "B" }, { id: "3", title: "C" }]));
+
+      const { status, body } = await api(s, "GET", "/api/backups");
+      expect(status).toBe(200);
+      expect(body.backups).toBeDefined();
+      expect(body.backups.length).toBe(3);
+      expect(body.backups[0].name).toBe("tasks-2026-01-05.json");
+      expect(body.backups[0].kind).toBe("tasks");
+      expect(body.backups[0].date).toBe("2026-01-05");
+      expect(body.backups[0].entries).toBe(2);
+      expect(body.backups[0].size).toBeGreaterThan(0);
+      expect(body.backups[1].name).toBe("projects-2026-01-03.json");
+      expect(body.backups[1].kind).toBe("projects");
+      expect(body.backups[2].name).toBe("tasks-2026-01-02.json");
+    } finally {
+      s.stop();
+    }
+  });
+
+  test("restore POST /api/backups/restore restores tasks and creates before-restore backup", async () => {
+    const s = await startServer({ tasks: [{ id: "curr", title: "Current Data" }] });
+    try {
+      const bdir = join(s.dataDir, "backups");
+      mkdirSync(bdir, { recursive: true });
+      writeFileSync(join(bdir, "tasks-2026-01-05.json"), JSON.stringify([{ id: "restored-1", title: "Restored Task" }]));
+
+      const res = await api(s, "POST", "/api/backups/restore", { file: "tasks-2026-01-05.json" });
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+
+      // Tasks in memory & on disk now match backup
+      const list = await api(s, "GET", "/api/tasks");
+      expect(list.body.tasks.map((t: { title: string }) => t.title)).toEqual(["Restored Task"]);
+
+      // Before-restore backup created holding "Current Data"
+      const beforeRestoreFiles = readdirSync(bdir).filter((f) => f.includes("before-restore"));
+      expect(beforeRestoreFiles.length).toBeGreaterThan(0);
+      const beforeContent = readFileSync(join(bdir, beforeRestoreFiles[0]), "utf-8");
+      expect(beforeContent).toContain("Current Data");
+    } finally {
+      s.stop();
+    }
+  });
+
+  test("restore refuses invalid names with 400 and missing files with 404", async () => {
+    const s = await startServer();
+    try {
+      // Path traversal or directory
+      const p1 = await api(s, "POST", "/api/backups/restore", { file: "../tasks.json" });
+      expect(p1.status).toBe(400);
+
+      const p2 = await api(s, "POST", "/api/backups/restore", { file: "not-a-backup.json" });
+      expect(p2.status).toBe(400);
+
+      const p3 = await api(s, "POST", "/api/backups/restore", { file: "tasks.json" });
+      expect(p3.status).toBe(400);
+
+      // Valid pattern but missing
+      const p4 = await api(s, "POST", "/api/backups/restore", { file: "tasks-1999-01-01.json" });
+      expect(p4.status).toBe(404);
+    } finally {
+      s.stop();
+    }
+  });
+
+  test("restore refuses unreadable backup with 400 and leaves data untouched", async () => {
+    const s = await startServer({ tasks: [{ id: "keep-me", title: "Keep Me" }] });
+    try {
+      const bdir = join(s.dataDir, "backups");
+      mkdirSync(bdir, { recursive: true });
+      writeFileSync(join(bdir, "tasks-2026-01-05.json"), "{not valid json");
+
+      const res = await api(s, "POST", "/api/backups/restore", { file: "tasks-2026-01-05.json" });
+      expect(res.status).toBe(400);
+
+      // No before-restore created
+      const beforeFiles = readdirSync(bdir).filter((f) => f.includes("before-restore"));
+      expect(beforeFiles.length).toBe(0);
+
+      // Data unchanged
+      const list = await api(s, "GET", "/api/tasks");
+      expect(list.body.tasks.map((t: { title: string }) => t.title)).toContain("Keep Me");
+    } finally {
+      s.stop();
+    }
+  });
+
+  test("unreadable data file at start with a backup renames corrupt file and loads backup", async () => {
+    const d = mkdtempSync(join(tmpdir(), "bun-do-corrupt-test-"));
+    try {
+      const bdir = join(d, "backups");
+      mkdirSync(bdir, { recursive: true });
+      writeFileSync(join(bdir, "tasks-2026-01-05.json"), JSON.stringify([{ id: "rescued", title: "Rescued Task" }]));
+
+      const s = await startServer({
+        dataDir: d,
+        rawTasks: "{corrupted json content",
+      });
+      try {
+        const list = await api(s, "GET", "/api/tasks");
+        expect(list.body.tasks.map((t: { title: string }) => t.title)).toEqual(["Rescued Task"]);
+
+        // Corrupt file exists byte-identical
+        const corruptFiles = readdirSync(d).filter((f) => f.startsWith("tasks.corrupt-"));
+        expect(corruptFiles.length).toBe(1);
+        expect(readFileSync(join(d, corruptFiles[0]), "utf-8")).toBe("{corrupted json content");
+      } finally {
+        s.stop();
+      }
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  test("unreadable data file at start without a backup renames corrupt file and starts empty", async () => {
+    const d = mkdtempSync(join(tmpdir(), "bun-do-corrupt-test-"));
+    try {
+      const s = await startServer({
+        dataDir: d,
+        rawTasks: "{corrupted json no backup",
+      });
+      try {
+        const list = await api(s, "GET", "/api/tasks");
+        expect(list.body.tasks).toEqual([]);
+
+        const corruptFiles = readdirSync(d).filter((f) => f.startsWith("tasks.corrupt-"));
+        expect(corruptFiles.length).toBe(1);
+        expect(readFileSync(join(d, corruptFiles[0]), "utf-8")).toBe("{corrupted json no backup");
+      } finally {
+        s.stop();
+      }
+    } finally {
+      rmSync(d, { recursive: true, force: true });
+    }
   });
 });

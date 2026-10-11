@@ -183,7 +183,7 @@ Custom port: `"env": { "BUNDO_PORT": "9000" }`. Run `bun-do start` first.
 | Variable | Default | Description |
 |---|---|---|
 | `BUNDO_DATA_DIR` | `./data` (source) / `~/.bun-do` (npm) | Directory for JSON data files |
-
+| `BUNDO_BACKUP_KEEP` | `30` | Number of backups of each kind to retain (whole number &ge; 1) |
 To use a custom data directory:
 
 ```bash
@@ -200,10 +200,14 @@ data/
   tasks.json            # your tasks
   projects.json         # your projects
   tasks.example.json    # seed data (committed to repo)
+  backups/              # automatic daily and before-restore snapshots
+    tasks-YYYY-MM-DD.json
+    projects-YYYY-MM-DD.json
 ```
 
 On first run, `tasks.example.json` seeds `tasks.json` if it doesn't exist.
 
+Before the first write of each calendar day, `tasks.json` and `projects.json` are automatically copied to `backups/`. The newest `BUNDO_BACKUP_KEEP` files of each kind are retained (default 30). Use `bun-do backups` to list backups and `bun-do restore <file>` to restore one (via the API when running, or directly on the files when stopped). If a data file is unreadable at startup, it is safely renamed to `<kind>.corrupt-<timestamp>.json` and the newest readable backup is loaded.
 ## API
 
 | Method | Endpoint | Description |
@@ -224,12 +228,15 @@ On first run, `tasks.example.json` seeds `tasks.json` if it doesn't exist.
 | `DELETE` | `/api/projects/:id` | Delete project |
 | `POST` | `/api/projects/:id/entries` | Add log entry |
 | `DELETE` | `/api/projects/:id/entries/:eid` | Delete log entry |
-
+| `GET` | `/api/backups` | List backups (newest first: file name, kind, date, size, entries) |
+| `POST` | `/api/backups/restore` | Restore a backup (`{ file }`); saves state before restore first |
 **Tags.** Each task has `tags`, a list of strings (empty when an older file has no tags). Create and update accept an array or one comma-separated string and replace the list. Values are trimmed, a leading `#` is removed, lower-cased, whitespace runs become `-`, and only letters, digits, `-` and `_` are kept (at most 32 characters, 10 per task, no duplicates). `GET /api/tasks?tag=work` filters; the value is normalised the same way, so `#WORK` matches `work`.
 
 **Recurrence.** A task's `recurrence` is `null` or `{"type": "daily"|"weekdays"|"weekly"|"monthly"|"yearly", ...}`: `weekly` uses `dow` (0 = Monday .. 6 = Sunday), `monthly` uses `day` (1–31), `yearly` uses `month` (1–12) and `day`. An optional `interval` (1–99) repeats every N days, weeks, months or years for daily, weekly, monthly and yearly (`weekdays` accepts only 1); it is stored only above 1. A missing anchor (`dow`, `day`, `month`) is taken from the task's date, so a monthly rule on the 31st stays anchored to the 31st after a short month. An invalid rule is refused with 400 and a `detail` naming the field.
 
 MCP `add_task` and `update_task` accept `tags`, `recurrence`, `amount` and `currency`. `list_tasks` accepts an optional `tag`.
+
+**Backups.** `GET /api/backups` lists available backups newest first. `POST /api/backups/restore` with `{"file": "<name>"}` validates the filename, saves the current file as `<kind>-YYYY-MM-DDTHHMMSS-before-restore.json`, and loads the backup into memory and disk.
 
 ## Stack
 

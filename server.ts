@@ -1,6 +1,16 @@
 // server.ts — Todo app backend (Bun, zero dependencies)
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "fs";
 import { extname, join, resolve } from "path";
 
 // ---------------------------------------------------------------------------
@@ -60,6 +70,22 @@ const PKG_DIR = import.meta.dir;
 const DATA_DIR = process.env.BUNDO_DATA_DIR || join(process.cwd(), "data");
 const TASKS_PATH = join(DATA_DIR, "tasks.json");
 const PROJECTS_PATH = join(DATA_DIR, "projects.json");
+const BACKUPS_DIR = join(DATA_DIR, "backups");
+
+function parseBackupKeep(): number {
+  const raw = process.env.BUNDO_BACKUP_KEEP;
+  if (raw === undefined || raw === "") return 30;
+  const trimmed = raw.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const val = parseInt(trimmed, 10);
+    if (val >= 1) return val;
+  }
+  console.log(`[bun-do] invalid BUNDO_BACKUP_KEEP "${raw}", must be a whole number of at least 1; using default 30`);
+  return 30;
+}
+
+const BACKUP_KEEP = parseBackupKeep();
+const BACKUP_FILENAME_RE = /^(tasks|projects)-(\d{4}-\d{2}-\d{2})(T\d{6}-before-restore)?\.json$/;
 const STATIC_DIR = join(PKG_DIR, "static");
 
 const PRIORITY_LABELS = ["P0", "P1", "P2", "P3"] as const;
@@ -307,6 +333,123 @@ function formatDate(d: Date): string {
   );
 }
 
+function formatDateTimeBeforeRestore(d = new Date()): string {
+  const datePart = formatDate(d);
+  const timePart =
+    String(d.getHours()).padStart(2, "0") +
+    String(d.getMinutes()).padStart(2, "0") +
+    String(d.getSeconds()).padStart(2, "0");
+  return `${datePart}T${timePart}`;
+}
+
+function formatTimestampCorrupt(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const s = String(d.getSeconds()).padStart(2, "0");
+  return `${y}${m}${day}-${h}${min}${s}`;
+}
+
+function getCorruptPath(kind: "tasks" | "projects"): string {
+  const baseTs = formatTimestampCorrupt();
+  let filename = `${kind}.corrupt-${baseTs}.json`;
+  let target = join(DATA_DIR, filename);
+  let counter = 1;
+  while (existsSync(target)) {
+    filename = `${kind}.corrupt-${baseTs}-${counter}.json`;
+    target = join(DATA_DIR, filename);
+    counter++;
+  }
+  return target;
+}
+
+function applyRetention(kind: "tasks" | "projects"): void {
+  if (!existsSync(BACKUPS_DIR)) return;
+  const files = readdirSync(BACKUPS_DIR)
+    .filter((f) => BACKUP_FILENAME_RE.exec(f)?.[1] === kind)
+    .sort()
+    .reverse();
+  if (files.length > BACKUP_KEEP) {
+    const toDelete = files.slice(BACKUP_KEEP);
+    for (const f of toDelete) {
+      try {
+        unlinkSync(join(BACKUPS_DIR, f));
+      } catch {}
+    }
+  }
+}
+
+function maybeDailyBackup(kind: "tasks" | "projects"): void {
+  const filePath = kind === "tasks" ? TASKS_PATH : PROJECTS_PATH;
+  if (!existsSync(filePath)) return;
+  if (!existsSync(BACKUPS_DIR)) mkdirSync(BACKUPS_DIR, { recursive: true });
+
+  const backupName = `${kind}-${today()}.json`;
+  const backupPath = join(BACKUPS_DIR, backupName);
+  if (!existsSync(backupPath)) {
+    copyFileSync(filePath, backupPath);
+    applyRetention(kind);
+  }
+}
+
+function isValidTaskShape(raw: unknown): boolean {
+  if (Array.isArray(raw)) return true;
+  if (raw && typeof raw === "object" && "tasks" in raw && Array.isArray(raw.tasks)) {
+    return true;
+  }
+  return false;
+}
+
+function isValidProjectShape(raw: unknown): boolean {
+  if (Array.isArray(raw)) return true;
+  if (raw && typeof raw === "object" && "projects" in raw && Array.isArray(raw.projects)) {
+    return true;
+  }
+  return false;
+}
+
+function extractTaskArray(raw: unknown): unknown[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === "object" && "tasks" in raw && Array.isArray(raw.tasks)) {
+    return raw.tasks;
+  }
+  return [];
+}
+
+function extractProjectArray(raw: unknown): Project[] {
+  if (Array.isArray(raw)) return raw as Project[];
+  if (raw && typeof raw === "object" && "projects" in raw && Array.isArray(raw.projects)) {
+    return raw.projects as Project[];
+  }
+  return [];
+}
+
+function getNewestReadableBackup(kind: "tasks" | "projects"): { file: string; data: unknown } | null {
+  if (!existsSync(BACKUPS_DIR)) return null;
+  const files = readdirSync(BACKUPS_DIR)
+    .filter((f) => BACKUP_FILENAME_RE.exec(f)?.[1] === kind)
+    .sort()
+    .reverse();
+
+  for (const file of files) {
+    const fullPath = join(BACKUPS_DIR, file);
+    try {
+      const content = readFileSync(fullPath, "utf-8");
+      const parsed = JSON.parse(content);
+      if (kind === "tasks") {
+        if (isValidTaskShape(parsed)) return { file, data: parsed };
+      } else {
+        if (isValidProjectShape(parsed)) return { file, data: parsed };
+      }
+    } catch {
+      // unreadable, continue
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // In-memory store + atomic persistence
 // ---------------------------------------------------------------------------
@@ -341,37 +484,98 @@ function parseTasks(raw: unknown): Task[] {
 
 function loadTasksFromDisk(): Task[] {
   if (!existsSync(TASKS_PATH)) return [];
+  let isCorrupt = false;
+  let parsed: unknown = null;
   try {
     const raw = JSON.parse(readFileSync(TASKS_PATH, "utf-8"));
-    const arr = Array.isArray(raw) ? raw : (raw?.tasks ?? []);
-    return parseTasks(arr);
+    if (!isValidTaskShape(raw)) {
+      isCorrupt = true;
+    } else {
+      parsed = raw;
+    }
   } catch {
-    return [];
+    isCorrupt = true;
   }
+
+  if (isCorrupt) {
+    const corruptPath = getCorruptPath("tasks");
+    renameSync(TASKS_PATH, corruptPath);
+    console.log(`[bun-do] corrupted tasks file moved to ${corruptPath}`);
+
+    const backup = getNewestReadableBackup("tasks");
+    if (backup) {
+      console.log(`[bun-do] loaded backup ${backup.file}`);
+      const loaded = parseTasks(extractTaskArray(backup.data));
+      const tmp = TASKS_PATH + ".tmp";
+      writeFileSync(tmp, JSON.stringify(loaded, null, 2));
+      renameSync(tmp, TASKS_PATH);
+      return loaded;
+    } else {
+      console.log(`[bun-do] no readable backup found for tasks, starting with empty list`);
+      const tmp = TASKS_PATH + ".tmp";
+      writeFileSync(tmp, "[]");
+      renameSync(tmp, TASKS_PATH);
+      return [];
+    }
+  }
+
+  return parseTasks(extractTaskArray(parsed));
 }
 
 function loadProjectsFromDisk(): Project[] {
   if (!existsSync(PROJECTS_PATH)) return [];
+  let isCorrupt = false;
+  let parsed: unknown = null;
   try {
     const raw = JSON.parse(readFileSync(PROJECTS_PATH, "utf-8"));
-    if (!Array.isArray(raw)) return [];
-    return raw;
+    if (!isValidProjectShape(raw)) {
+      isCorrupt = true;
+    } else {
+      parsed = raw;
+    }
   } catch {
-    return [];
+    isCorrupt = true;
   }
+
+  if (isCorrupt) {
+    const corruptPath = getCorruptPath("projects");
+    renameSync(PROJECTS_PATH, corruptPath);
+    console.log(`[bun-do] corrupted projects file moved to ${corruptPath}`);
+
+    const backup = getNewestReadableBackup("projects");
+    if (backup) {
+      console.log(`[bun-do] loaded backup ${backup.file}`);
+      const arr = extractProjectArray(backup.data);
+      const tmp = PROJECTS_PATH + ".tmp";
+      writeFileSync(tmp, JSON.stringify(arr, null, 2));
+      renameSync(tmp, PROJECTS_PATH);
+      return arr;
+    } else {
+      console.log(`[bun-do] no readable backup found for projects, starting with empty list`);
+      const tmp = PROJECTS_PATH + ".tmp";
+      writeFileSync(tmp, "[]");
+      renameSync(tmp, PROJECTS_PATH);
+      return [];
+    }
+  }
+
+  return extractProjectArray(parsed);
 }
 
 function saveTasks(): void {
+  maybeDailyBackup("tasks");
   const tmp = TASKS_PATH + ".tmp";
   writeFileSync(tmp, JSON.stringify(tasks, null, 2));
   renameSync(tmp, TASKS_PATH);
 }
 
 function saveProjects(): void {
+  maybeDailyBackup("projects");
   const tmp = PROJECTS_PATH + ".tmp";
   writeFileSync(tmp, JSON.stringify(projects, null, 2));
   renameSync(tmp, PROJECTS_PATH);
 }
+
 
 function findTask(id: string): Task | undefined {
   return tasks.find((t) => t.id === id);
@@ -668,6 +872,145 @@ function handleDeleteEntry(projectId: string, entryId: string): Response {
   return json({ ok: true });
 }
 
+// -- Backups --
+
+interface BackupInfo {
+  name: string;
+  file: string;
+  kind: "tasks" | "projects";
+  date: string;
+  size: number;
+  entries: number;
+  count: number;
+}
+
+function handleGetBackups(): Response {
+  if (!existsSync(BACKUPS_DIR)) {
+    return json({ backups: [] });
+  }
+
+  const files = readdirSync(BACKUPS_DIR)
+    .filter((f) => BACKUP_FILENAME_RE.test(f))
+    .sort((a, b) => {
+      const ka = a.replace(/^(tasks|projects)-/, "");
+      const kb = b.replace(/^(tasks|projects)-/, "");
+      return kb.localeCompare(ka) || a.localeCompare(b);
+    });
+
+  const backups: BackupInfo[] = [];
+
+  for (const file of files) {
+    const fullPath = join(BACKUPS_DIR, file);
+    try {
+      const stat = statSync(fullPath);
+      const m = file.match(BACKUP_FILENAME_RE);
+      if (!m) continue;
+      const kind = m[1] as "tasks" | "projects";
+      const datePart = m[2];
+      const sub = m[3] ?? "";
+      let date = datePart;
+      if (sub.startsWith("T")) {
+        const timeStr = sub.slice(1, 7);
+        date = `${datePart} ${timeStr.slice(0, 2)}:${timeStr.slice(2, 4)}:${timeStr.slice(4, 6)}`;
+      }
+
+      let entries = 0;
+      try {
+        const content = readFileSync(fullPath, "utf-8");
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed)) {
+          entries = parsed.length;
+        } else if (parsed && typeof parsed === "object") {
+          if ("tasks" in parsed && Array.isArray(parsed.tasks)) entries = parsed.tasks.length;
+          else if ("projects" in parsed && Array.isArray(parsed.projects)) entries = parsed.projects.length;
+        }
+      } catch {}
+
+      backups.push({
+        name: file,
+        file,
+        kind,
+        date,
+        size: stat.size,
+        entries,
+        count: entries,
+      });
+    } catch {}
+  }
+
+  return json({ backups });
+}
+
+async function handleRestoreBackup(req: Request): Promise<Response> {
+  const body: unknown = await parseJson(req);
+  if (!body || typeof body !== "object" || !("file" in body)) {
+    return json({ detail: "file is required" }, 400);
+  }
+  const file = body.file;
+  if (typeof file !== "string" || !file) {
+    return json({ detail: "file is required" }, 400);
+  }
+
+  if (file.includes("/") || file.includes("\\") || file.includes("..")) {
+    return json({ detail: "file must be a bare file name without path" }, 400);
+  }
+
+  const match = file.match(BACKUP_FILENAME_RE);
+  if (!match) {
+    return json({ detail: "file name must match the backup pattern" }, 400);
+  }
+
+  const backupPath = join(BACKUPS_DIR, file);
+  if (!existsSync(backupPath)) {
+    return notFound("Backup file not found");
+  }
+
+  let parsed: unknown;
+  try {
+    const content = readFileSync(backupPath, "utf-8");
+    parsed = JSON.parse(content);
+  } catch {
+    return json({ detail: "Backup file is unreadable or not valid JSON" }, 400);
+  }
+
+  const kind = match[1] as "tasks" | "projects";
+  if (kind === "tasks") {
+    if (!isValidTaskShape(parsed)) {
+      return json({ detail: "Backup file has invalid shape for tasks" }, 400);
+    }
+  } else {
+    if (!isValidProjectShape(parsed)) {
+      return json({ detail: "Backup file has invalid shape for projects" }, 400);
+    }
+  }
+
+  if (!existsSync(BACKUPS_DIR)) mkdirSync(BACKUPS_DIR, { recursive: true });
+  const beforeRestoreName = `${kind}-${formatDateTimeBeforeRestore()}-before-restore.json`;
+  const beforeRestorePath = join(BACKUPS_DIR, beforeRestoreName);
+  const currentPath = kind === "tasks" ? TASKS_PATH : PROJECTS_PATH;
+  if (existsSync(currentPath)) {
+    copyFileSync(currentPath, beforeRestorePath);
+  } else {
+    const currentData = kind === "tasks" ? tasks : projects;
+    writeFileSync(beforeRestorePath, JSON.stringify(currentData, null, 2));
+  }
+  applyRetention(kind);
+
+  if (kind === "tasks") {
+    tasks = parseTasks(extractTaskArray(parsed));
+    const tmp = TASKS_PATH + ".tmp";
+    writeFileSync(tmp, JSON.stringify(tasks, null, 2));
+    renameSync(tmp, TASKS_PATH);
+  } else {
+    projects = extractProjectArray(parsed);
+    const tmp = PROJECTS_PATH + ".tmp";
+    writeFileSync(tmp, JSON.stringify(projects, null, 2));
+    renameSync(tmp, PROJECTS_PATH);
+  }
+
+  return json({ ok: true, restored: file });
+}
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -756,6 +1099,9 @@ async function handleRequest(req: Request): Promise<Response> {
   match = path.match(/^\/api\/projects\/([^/]+)\/entries\/([^/]+)$/);
   if (match && method === "DELETE") return handleDeleteEntry(match[1], match[2]);
 
+
+  if (path === "/api/backups" && method === "GET") return handleGetBackups();
+  if (path === "/api/backups/restore" && method === "POST") return handleRestoreBackup(req);
   return new Response("Not found", { status: 404 });
 }
 

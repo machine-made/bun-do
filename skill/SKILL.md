@@ -57,7 +57,8 @@ bun-do is a local-first todo app. REST API at `http://localhost:8000`. All data 
 | Delete project | DELETE | `/api/projects/{id}` |
 | Add log entry | POST | `/api/projects/{id}/entries` |
 | Delete log entry | DELETE | `/api/projects/{id}/entries/{eid}` |
-
+| List backups | GET | `/api/backups` |
+| Restore backup | POST | `/api/backups/restore` |
 ## Task fields
 
 ```json
@@ -81,6 +82,15 @@ bun-do is a local-first todo app. REST API at `http://localhost:8000`. All data 
 **Tags**: a list of strings, or one comma-separated string. Normalised on create and update: trimmed, a leading `#` removed, lower case, whitespace runs become `-`, only letters, digits, `-` and `_`, at most 32 characters, at most 10 per task, duplicates dropped. Update replaces the list. Old files without `tags` load as `[]`. The next occurrence of a recurring task keeps its tags. `GET /api/tasks?tag=work` returns only tasks carrying that tag (`#WORK` matches `work`). Omit `tag` for the full list.
 
 **MCP** (`bun-do-mcp`): `add_task` and `update_task` accept `tags`, `recurrence`, `amount` and `currency` (same rules as the API). `list_tasks` accepts an optional `tag`. A failed tool call returns a result with `isError: true`, not a JSON-RPC error.
+
+## Backups
+
+The server automatically backs up `tasks.json` and `projects.json` to `BUNDO_DATA_DIR/backups/` as `tasks-YYYY-MM-DD.json` (`projects-YYYY-MM-DD.json`) before the first write of each calendar day. Later writes that day leave it untouched.
+
+- **Retention**: `BUNDO_BACKUP_KEEP` environment variable (default 30, whole number &ge; 1). Older files are deleted automatically.
+- **Listing**: `GET /api/backups` returns backups newest first (`name`, `file`, `kind`, `date`, `size`, `entries`). CLI: `bun-do backups`.
+- **Restoring**: `POST /api/backups/restore` with `{"file": "<name>"}` (must match backup filename pattern). Saves current data to `<kind>-YYYY-MM-DDTHHMMSS-before-restore.json` first, then loads backup into memory and disk. CLI: `bun-do restore <file>`.
+- **Corrupt file safety**: If a data file fails to parse or has the wrong shape at startup, it is renamed to `<kind>.corrupt-<YYYYMMDD-HHMMSS>.json` (never overwritten), and the newest readable backup is loaded.
 
 ## Curl patterns
 
@@ -152,6 +162,18 @@ curl -s -X POST http://localhost:8000/api/tasks/TASK_ID/subtasks \
 curl -s -X POST http://localhost:8000/api/projects/PROJECT_ID/entries \
   -H 'Content-Type: application/json' \
   -d '{"summary": "Shipped v1.3 with MCP server and OpenClaw skill"}'
+```
+
+### List and restore backups
+
+```bash
+# List backups
+curl -s http://localhost:8000/api/backups
+
+# Restore backup
+curl -s -X POST http://localhost:8000/api/backups/restore \
+  -H 'Content-Type: application/json' \
+  -d '{"file": "tasks-2026-01-05.json"}'
 ```
 
 ## Proactive patterns
