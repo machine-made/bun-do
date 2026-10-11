@@ -1144,7 +1144,7 @@ html.light .type-chip.type-reminder { color: var(--blue); }
      sideways inside themselves, and the fade at the right edge shows there is more. */
   .navbar { padding: var(--space-2) var(--space-4); gap: var(--space-2); }
   .period-nav { padding-left: var(--space-4); padding-right: var(--space-4); }
-  .nav-center, .nav-right {
+  .nav-center, .nav-right, .tag-bar {
     -webkit-mask-image: linear-gradient(to right, #000 85%, transparent);
     mask-image: linear-gradient(to right, #000 85%, transparent);
   }
@@ -1156,8 +1156,11 @@ html.light .type-chip.type-reminder { color: var(--blue); }
     margin-left: 0;
     scrollbar-width: none;
   }
-  .nav-right::-webkit-scrollbar { display: none; }
+  .nav-right::-webkit-scrollbar, .tag-bar::-webkit-scrollbar { display: none; }
+  .nav-right > *, .tag-bar > * { flex-shrink: 0; }
   .nav-right .search-input { flex: 0 0 150px; }
+  /* The tag filter is one row that scrolls sideways, like the header rows. */
+  .tag-bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .nav-right .btn-primary { order: -1; }
   /* Task rows: title on the first line, the row's buttons on a second line at the right. */
   .task-row { flex-wrap: wrap; justify-content: flex-end; column-gap: var(--space-2); }
