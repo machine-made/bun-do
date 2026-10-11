@@ -16,19 +16,47 @@
   --border: #2a2a3a;
   --border-light: #1e1e2e;
   --text: #e4e4ed;
-  --text-muted: #7a7a8e;
-  --text-dim: #55556a;
-  --accent: #6366f1;
+  --text-muted: #9494a8;
+  --text-dim: #88889c;
+  --accent: #585be6;
   --accent-hover: #818cf8;
   --accent-dim: rgba(99,102,241,0.15);
   --danger: #ef4444;
   --success: #22c55e;
   --blue: #3b82f6;
   --blue-dim: rgba(59,130,246,0.15);
+  --payment: #f59e0b;
   --radius: 8px;
   --radius-lg: 12px;
   --font: 'Inter', -apple-system, system-ui, sans-serif;
   --transition: 0.15s ease;
+  /* Smallest size of a control: 24px with a mouse, 44px on a phone (set below). */
+  --tap: 24px;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+
+  /* Type scale */
+  --text-2xs: 0.68rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8rem;
+  --text-md: 0.88rem;
+  --text-lg: 1rem;
+  --text-xl: 1.35rem;
+
+  /* Chip / badge colours */
+  --prio-p0: #f87171;
+  --prio-p1: #f59e0b;
+  --prio-p2: #818cf8;
+  --prio-p3: #9ca3af;
+  --status-active: #22c55e;
+  --status-paused: #f59e0b;
 }
 
 html.light {
@@ -39,15 +67,23 @@ html.light {
   --border: #d1d1d6;
   --border-light: #e5e5ea;
   --text: #1d1d1f;
-  --text-muted: #6e6e73;
-  --text-dim: #8e8e93;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
+  --text-muted: #59595f;
+  --text-dim: #64646c;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
   --accent-dim: rgba(99,102,241,0.1);
-  --danger: #dc2626;
-  --success: #16a34a;
-  --blue: #2563eb;
-  --blue-dim: rgba(37,99,235,0.1);
+  --danger: #b91c1c;
+  --success: #15803d;
+  --blue: #1d4ed8;
+  --blue-dim: rgba(59,130,246,0.1);
+  --payment: #b03d0b;
+
+  --prio-p0: #b91c1c;
+  --prio-p1: #b03d0b;
+  --prio-p2: #4338ca;
+  --prio-p3: #4b5563;
+  --status-active: #166534;
+  --status-paused: #b03d0b;
 }
 
 html { background: var(--bg); }
@@ -61,12 +97,31 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Keyboard focus: a clear ring on every interactive element. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input:focus-visible, select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim), 0 0 0 3px var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 /* ── Navbar ─────────────────────────────────── */
 .navbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 10px 24px;
+  gap: var(--space-4);
+  padding: 10px var(--space-6);
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-light);
   position: sticky;
@@ -79,25 +134,39 @@ body {
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.02em;
-  margin-right: 8px;
+  margin-right: var(--space-2);
   white-space: nowrap;
 }
-.nav-center { display: flex; align-items: center; gap: 2px; }
-.nav-right { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.nav-center {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  scrollbar-width: none;
+}
+.nav-center::-webkit-scrollbar { display: none; }
+.nav-right { display: flex; align-items: center; gap: var(--space-1); margin-left: auto; flex-wrap: wrap; }
 
 /* ── Buttons ────────────────────────────────── */
 .btn-ghost {
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
-  padding: 5px 10px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-family: var(--font);
   font-weight: 500;
   transition: all var(--transition);
   white-space: nowrap;
+  min-height: var(--tap);
+  min-width: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .btn-ghost:hover { color: var(--text); background: var(--bg-hover); }
 .btn-ghost.active { color: var(--accent); background: var(--accent-dim); }
@@ -106,14 +175,19 @@ body {
   background: var(--accent);
   color: #fff;
   border: none;
-  padding: 6px 14px;
+  padding: var(--space-1) var(--space-4);
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-family: var(--font);
   font-weight: 600;
   transition: background var(--transition);
   white-space: nowrap;
+  min-height: var(--tap);
+  min-width: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .btn-primary:hover { background: var(--accent-hover); }
 
@@ -121,13 +195,18 @@ body {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  padding: 3px 10px;
+  padding: 0 var(--space-3);
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: var(--text-2xs);
   font-family: var(--font);
   font-weight: 500;
   transition: all var(--transition);
+  min-height: var(--tap);
+  min-width: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .btn-sm:hover { color: var(--text); background: var(--bg-hover); }
 
@@ -135,15 +214,20 @@ body {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 5px 12px;
+  padding: var(--space-1) var(--space-3);
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-family: var(--font);
   font-weight: 500;
   transition: all var(--transition);
+  min-height: var(--tap);
+  min-width: var(--tap);
+  flex-shrink: 0;
 }
 .view-tab:hover { color: var(--text); }
+/* The tab bar scrolls, so it clips anything outside it: draw the ring inside. */
+.view-tab:focus-visible { outline-offset: -2px; }
 .view-tab.active { background: var(--bg-hover); color: var(--text); }
 
 /* ── Period Nav ─────────────────────────────── */
@@ -151,11 +235,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 14px 24px 6px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6) var(--space-1);
 }
 .period-label {
-  font-size: 1rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: var(--text);
   min-width: 220px;
@@ -165,11 +249,12 @@ body {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  width: 32px;
-  height: 32px;
+  min-width: var(--tap);
+  width: max(32px, var(--tap));
+  height: max(32px, var(--tap));
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: var(--text-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -183,20 +268,21 @@ body {
   max-width: 1000px;
   width: 100%;
   margin: 0 auto;
-  padding: 12px 24px 24px;
+  padding: var(--space-3) var(--space-6) var(--space-6);
 }
 
 /* ── Task Row ───────────────────────────────── */
 .task-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 14px;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3);
   background: var(--bg-surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
   transition: background var(--transition);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
+  min-height: 48px;
 }
 .task-row:hover { background: var(--bg-hover); }
 .task-row.done { opacity: 0.55; }
@@ -215,13 +301,20 @@ body {
 .type-dot.deadline { background: var(--danger); }
 .type-dot.reminder { background: var(--blue); }
 .type-dot.task { background: transparent; }
-.type-dot.payment { background: #f59e0b; }
+.type-dot.payment { background: var(--payment); }
 
 .checkbox-wrap {
   flex-shrink: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  margin-left: calc(-1 * var(--space-2));
 }
 .checkbox {
   width: 18px;
@@ -251,12 +344,22 @@ body {
   gap: 2px;
 }
 .task-title {
-  font-size: 0.88rem;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: var(--font);
+  text-align: left;
+  cursor: text;
+  display: block;
+  max-width: 100%;
+  min-height: var(--tap);
+  line-height: var(--tap);
 }
 .task-title.line-through {
   text-decoration: line-through;
@@ -282,47 +385,64 @@ body {
   color: var(--text-dim);
 }
 .task-notes {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: var(--font);
+  text-align: left;
+  cursor: text;
+  display: block;
+  max-width: 100%;
+  min-height: var(--tap);
+  line-height: var(--tap);
 }
 .task-meta {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.7rem;
+  font-size: var(--text-2xs);
   color: var(--text-dim);
 }
 
 .task-date {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .recurrence-icon {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-dim);
   flex-shrink: 0;
   transition: color var(--transition);
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: var(--font);
+  min-width: var(--tap);
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .recurrence-icon:hover { color: var(--text-muted); }
 .recurrence-icon.weekly { color: var(--success); }
-.recurrence-icon.weekly:hover { color: #4ade80; }
 .recurrence-icon.monthly { color: var(--blue); }
-.recurrence-icon.monthly:hover { color: #60a5fa; }
 .recurrence-icon.yearly { color: #a855f7; }
-.recurrence-icon.yearly:hover { color: #c084fc; }
+html.light .recurrence-icon.yearly { color: #7c3aed; }
 
 .btn-delete {
   background: transparent;
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  padding: 4px;
+  padding: 0;
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -330,20 +450,32 @@ body {
   opacity: 0;
   transition: all var(--transition);
   flex-shrink: 0;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  margin-right: calc(-1 * var(--space-2));
 }
-.task-row:hover .btn-delete { opacity: 1; }
+.task-row:hover .btn-delete, .task-row:focus-within .btn-delete, .btn-delete:focus-visible { opacity: 1; }
 .btn-delete:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+@media (hover: none) {
+  .btn-delete { opacity: 1; }
+}
 
 /* ── Subtasks ──────────────────────────────── */
 .subtask-toggle {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.7rem;
+  font-size: var(--text-2xs);
   color: var(--text-dim);
   cursor: pointer;
   user-select: none;
   margin-top: 2px;
+  background: transparent;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  font-family: var(--font);
+  min-height: var(--tap);
+  white-space: nowrap;
 }
 .subtask-toggle:hover { color: var(--text-muted); }
 .subtask-section {
@@ -356,25 +488,53 @@ body {
   padding: 3px 0;
 }
 .subtask-check {
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid var(--border);
-  border-radius: 3px;
+  width: var(--tap);
+  height: var(--tap);
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   transition: all var(--transition);
+  background: transparent;
+  padding: 0;
+  position: relative;
 }
-.subtask-check.checked {
+/* The visible box is drawn by a pseudo-element so the button can stay 44x44. */
+.subtask-check::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 3px;
+  transition: all var(--transition);
+}
+.subtask-check .check-icon {
+  width: 10px;
+  height: 10px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.subtask-check.checked::before {
   background: var(--accent);
   border-color: var(--accent);
 }
-.subtask-check .check-icon { width: 10px; height: 10px; }
 .subtask-title {
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: var(--font);
+  text-align: left;
+  cursor: text;
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
 }
 .subtask-title.done {
   text-decoration: line-through;
@@ -396,15 +556,22 @@ body {
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  padding: 2px;
+  padding: 0;
   border-radius: 3px;
   opacity: 0;
   transition: all var(--transition);
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  margin-left: auto;
 }
-.subtask-row:hover .subtask-delete { opacity: 1; }
+.subtask-row:hover .subtask-delete, .subtask-row:focus-within .subtask-delete, .subtask-delete:focus-visible { opacity: 1; }
 .subtask-delete:hover { color: var(--danger); }
+@media (hover: none) {
+  .subtask-delete { opacity: 1; }
+}
 
 .subtask-num {
   font-size: 0.65rem;
@@ -467,10 +634,10 @@ body {
   min-width: 28px;
   text-align: center;
 }
-.priority-P0 { background: rgba(239,68,68,0.15); color: #ef4444; }
-.priority-P1 { background: rgba(245,158,11,0.15); color: #f59e0b; }
-.priority-P2 { background: rgba(99,102,241,0.15); color: #6366f1; }
-.priority-P3 { background: rgba(107,114,128,0.15); color: #6b7280; }
+.priority-P0 { background: rgba(248,113,113,0.15); color: var(--prio-p0); }
+.priority-P1 { background: rgba(245,158,11,0.15); color: var(--prio-p1); }
+.priority-P2 { background: rgba(129,140,248,0.15); color: var(--prio-p2); }
+.priority-P3 { background: rgba(107,114,128,0.15); color: var(--prio-p3); }
 .priority-chip.selected { outline: 2px solid currentColor; outline-offset: 1px; }
 
 /* ── Tags ───────────────────────────────────── */
@@ -502,13 +669,22 @@ body {
   color: var(--text-dim);
   cursor: pointer;
   font-family: var(--font);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   line-height: 1;
   padding: 0 4px;
   opacity: 0;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: calc(-1 * var(--space-1));
 }
-.task-row:hover .tag-edit { opacity: 1; }
+.task-row:hover .tag-edit, .task-row:focus-within .tag-edit, .tag-edit:focus-visible { opacity: 1; }
 .tag-edit:hover { color: var(--accent-hover); }
+@media (hover: none) {
+  .tag-edit { opacity: 1; }
+}
 .task-tags-edit {
   font-family: var(--font);
   font-size: 0.75rem;
@@ -535,11 +711,12 @@ body {
   background: var(--bg-surface);
   color: var(--text-muted);
   border-radius: 999px;
-  padding: 3px 8px 3px 10px;
-  font-size: 0.72rem;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  font-size: var(--text-2xs);
   font-weight: 600;
   cursor: pointer;
   font-family: var(--font);
+  min-height: var(--tap);
 }
 .tag-filter.active {
   color: var(--accent-hover);
@@ -563,42 +740,51 @@ body {
   color: var(--text-muted);
   cursor: pointer;
   font-family: var(--font);
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
   line-height: 1;
-  padding: 2px 6px;
+  padding: 0;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .tag-clear:hover { color: var(--danger); }
 
 /* ── Type Selector ─────────────────────────── */
 .type-selector {
   display: flex;
-  gap: 6px;
+  gap: var(--space-1);
 }
 .type-chip {
-  display: inline-block;
-  padding: 4px 12px;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
   transition: all var(--transition);
   border: 1px solid transparent;
+  font-family: var(--font);
+  min-height: var(--tap);
 }
 .type-chip.type-task {
   background: rgba(107,114,128,0.15);
-  color: #9ca3af;
+  color: var(--prio-p3);
 }
 .type-chip.type-deadline {
   background: rgba(239,68,68,0.1);
-  color: #f87171;
+  color: var(--prio-p0);
 }
 .type-chip.type-reminder {
   background: var(--blue-dim);
   color: #60a5fa;
 }
+html.light .type-chip.type-reminder { color: var(--blue); }
 .type-chip.type-payment {
   background: rgba(245,158,11,0.15);
-  color: #f59e0b;
+  color: var(--payment);
 }
 .type-chip.selected {
   outline: 2px solid currentColor;
@@ -611,9 +797,9 @@ body {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 9px 12px;
+  padding: var(--space-2) var(--space-3);
   color: var(--text);
-  font-size: 0.88rem;
+  font-size: var(--text-md);
   font-family: var(--font);
   outline: none;
   transition: border-color var(--transition);
@@ -676,7 +862,13 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  font-family: var(--font);
+  text-align: left;
+  width: 100%;
+  min-width: var(--tap);
+  overflow: hidden;
 }
+.cal-slot { display: contents; }
 .cal-cell:hover { background: var(--bg-hover); border-color: var(--border); }
 .cal-cell.empty {
   background: transparent;
@@ -695,7 +887,7 @@ body {
   background: var(--accent-dim);
 }
 .cal-day-num {
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--text);
 }
@@ -732,6 +924,10 @@ body {
   font-size: 0.7rem;
   color: var(--text-muted);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* ── Year View Month Cards ──────────────────── */
@@ -787,12 +983,29 @@ body {
 }
 
 /* ── Empty State ────────────────────────────── */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .empty-state {
   text-align: center;
   color: var(--text-dim);
-  font-size: 0.88rem;
-  padding: 48px 0;
+  font-size: var(--text-md);
+  padding: var(--space-7) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
 }
+.empty-state p { margin: 0; }
 /* ── First Run Guide ────────────────────────── */
 .guide-panel {
   max-width: 680px;
@@ -892,17 +1105,17 @@ body {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: var(--space-6);
   width: 100%;
   max-width: 420px;
   max-height: 90vh;
   overflow-y: auto;
 }
 .modal-title {
-  font-size: 1rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 18px;
+  margin-bottom: var(--space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -912,15 +1125,65 @@ body {
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 4px;
+  font-size: var(--text-xl);
+  padding: 0;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: color var(--transition);
+  min-width: var(--tap);
+  min-height: var(--tap);
+  margin: -8px -8px -8px 0;
 }
 .modal-close:hover { color: var(--text); }
+
+@media (max-width: 600px) {
+  :root { --tap: 44px; }
+  /* Two header rows: logo and view tabs, then + Add, search and the tools. Both rows scroll
+     sideways inside themselves, and the fade at the right edge shows there is more. */
+  .navbar { padding: var(--space-2) var(--space-4); gap: var(--space-2); }
+  .period-nav { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .nav-center, .nav-right {
+    -webkit-mask-image: linear-gradient(to right, #000 85%, transparent);
+    mask-image: linear-gradient(to right, #000 85%, transparent);
+  }
+  .nav-center { flex: 1 1 0; }
+  .nav-right {
+    flex: 1 0 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-left: 0;
+    scrollbar-width: none;
+  }
+  .nav-right::-webkit-scrollbar { display: none; }
+  .nav-right .search-input { flex: 0 0 150px; }
+  .nav-right .btn-primary { order: -1; }
+  /* Task rows: title on the first line, the row's buttons on a second line at the right. */
+  .task-row { flex-wrap: wrap; justify-content: flex-end; column-gap: var(--space-2); }
+  /* 90px: room for the drag handle, dot and checkbox, too little for any of the row buttons. */
+  .task-info { flex: 1 1 calc(100% - 90px); }
+  .modal-backdrop {
+    align-items: stretch;
+    padding: 0;
+  }
+  .modal {
+    max-width: none;
+    max-height: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+    border-radius: 0;
+    border: none;
+  }
+  /* 360px - 2 x 16px leaves 328px: room for 7 calendar cells of 44px with 2px gaps. */
+  .content {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  .cal-header, .cal-week {
+    gap: 2px;
+  }
+}
 
 .form-group { margin-bottom: 14px; }
 .form-label {
@@ -935,9 +1198,9 @@ body {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 9px 12px;
+  padding: var(--space-2) var(--space-3);
   color: var(--text);
-  font-size: 0.88rem;
+  font-size: var(--text-md);
   font-family: var(--font);
   outline: none;
   transition: border-color var(--transition);
@@ -957,14 +1220,14 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  width: 30px;
-  height: 30px;
+  width: max(30px, var(--tap));
+  height: max(30px, var(--tap));
   border-radius: var(--radius);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
   transition: all var(--transition);
   flex-shrink: 0;
 }
@@ -978,6 +1241,9 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   padding: 4px 12px;
   font-size: 0.75rem;
+  font-family: var(--font);
+  border: 1px solid transparent;
+  min-height: var(--tap);
   transition: all var(--transition);
 }
 
@@ -1008,8 +1274,9 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--text);
 }
 .status-badge {
-  display: inline-block;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
   border-radius: 999px;
   font-size: 0.65rem;
   font-weight: 600;
@@ -1017,10 +1284,15 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   letter-spacing: 0.04em;
   cursor: pointer;
   transition: all var(--transition);
+  font-family: var(--font);
+  border: none;
+  background: transparent;
+  min-height: var(--tap);
+  min-width: var(--tap);
 }
-.status-active { background: rgba(34,197,94,0.15); color: #22c55e; }
-.status-paused { background: rgba(245,158,11,0.15); color: #f59e0b; }
-.status-completed { background: rgba(107,114,128,0.15); color: #6b7280; }
+.status-active { background: rgba(34,197,94,0.15); color: var(--status-active); }
+.status-paused { background: rgba(245,158,11,0.15); color: var(--status-paused); }
+.status-completed { background: rgba(107,114,128,0.15); color: var(--prio-p3); }
 .project-desc {
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -1061,13 +1333,22 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  padding: 2px;
-  font-size: 0.7rem;
+  padding: 0;
+  font-size: var(--text-2xs);
   opacity: 0;
   transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  margin-left: auto;
 }
-.entry-row:hover .entry-delete { opacity: 1; }
+.entry-row:hover .entry-delete, .entry-row:focus-within .entry-delete, .entry-delete:focus-visible { opacity: 1; }
 .entry-delete:hover { color: var(--danger); }
+@media (hover: none) {
+  .entry-delete { opacity: 1; }
+}
 
 .entry-add-form {
   display: flex;
@@ -1085,6 +1366,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   font-size: 0.78rem;
   font-family: var(--font);
   outline: none;
+  min-height: var(--tap);
 }
 .entry-add-form input:focus { border-color: var(--accent); }
 
@@ -1093,16 +1375,22 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  padding: 4px;
+  padding: 0;
   border-radius: 4px;
   margin-left: auto;
   display: flex;
   align-items: center;
+  justify-content: center;
   opacity: 0;
   transition: all var(--transition);
+  min-width: var(--tap);
+  min-height: var(--tap);
 }
-.project-card:hover .project-delete { opacity: 1; }
+.project-card:hover .project-delete, .project-card:focus-within .project-delete, .project-delete:focus-visible { opacity: 1; }
 .project-delete:hover { color: var(--danger); }
+@media (hover: none) {
+  .project-delete { opacity: 1; }
+}
 
 /* ── Collapsible Panel (shared by Backlog & Payments) ── */
 .collapsible-panel {
@@ -1113,24 +1401,31 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
 .collapsible-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   cursor: pointer;
   user-select: none;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-1);
+  background: transparent;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  font-family: var(--font);
+  text-align: left;
+  width: 100%;
+  min-height: var(--tap);
 }
 .collapsible-header:hover .collapsible-title { color: var(--text); }
 .collapsible-title {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-muted);
   transition: color var(--transition);
 }
 .collapsible-count {
-  font-size: 0.72rem;
+  font-size: var(--text-2xs);
   color: var(--text-dim);
 }
 .collapsible-arrow {
-  font-size: 0.7rem;
+  font-size: var(--text-2xs);
   color: var(--text-dim);
 }
 .payment-month-group {
@@ -1149,17 +1444,17 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--text-muted);
 }
 .payment-month-total {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
-  color: #f59e0b;
+  color: var(--payment);
 }
 .payment-amount {
-  font-size: 0.72rem;
+  font-size: var(--text-2xs);
   font-weight: 500;
-  color: #f59e0b;
+  color: var(--payment);
   white-space: nowrap;
   margin-left: auto;
-  margin-right: 8px;
+  margin-right: var(--space-2);
 }
 
 /* ── Sortable drag ghost ────────────────────── */
@@ -1183,13 +1478,16 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   z-index: 300;
   opacity: 0;
   transform: translateY(-10px);
-  transition: all 0.3s ease;
+  transition: all 0.3s ease, visibility 0s 0.3s;
   pointer-events: none;
+  visibility: hidden;
 }
 .toast.visible {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+  visibility: visible;
+  transition-delay: 0s;
 }
 .toast.error {
   border-color: var(--danger);
@@ -1229,10 +1527,11 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   border-radius: var(--radius);
   color: var(--text);
   font-family: var(--font);
-  font-size: 0.8rem;
-  padding: 4px 10px;
+  font-size: var(--text-sm);
+  padding: 0 var(--space-3);
   outline: none;
   width: 160px;
+  min-height: var(--tap);
   transition: border-color var(--transition);
 }
 .search-input:focus { border-color: var(--accent); }
@@ -1255,19 +1554,20 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   </div>
 
   <!-- Navbar -->
-  <nav class="navbar">
+  <nav class="navbar" x-effect="$el.inert = anyModalOpen()">
     <span class="nav-logo">bun-do</span>
-    <div class="nav-center">
-      <button class="view-tab" :class="{ active: view === 'all' }" @click="switchView('all')">All<span class="overdue-badge" x-show="overdueCount() > 0" x-text="overdueCount()"></span></button>
-      <button class="view-tab" :class="{ active: view === 'year' }" @click="switchView('year')">Year</button>
-      <button class="view-tab" :class="{ active: view === 'month' }" @click="switchView('month')">Month</button>
-      <button class="view-tab" :class="{ active: view === 'day' }" @click="switchView('day')">Day</button>
-      <button class="view-tab" :class="{ active: view === 'backlog' }" @click="switchView('backlog')">Backlog</button>
-      <button class="view-tab" :class="{ active: view === 'payments' }" @click="switchView('payments')">Payments</button>
-      <button class="view-tab" :class="{ active: view === 'projects' }" @click="switchView('projects')">Projects</button>
+    <div class="nav-center" role="group" aria-label="Views">
+      <button class="view-tab" :class="{ active: view === 'all' }" :aria-current="view === 'all' ? 'page' : null" @click="switchView('all')">All<span class="overdue-badge" x-show="overdueCount() > 0" x-text="overdueCount()"></span></button>
+      <button class="view-tab" :class="{ active: view === 'year' }" :aria-current="view === 'year' ? 'page' : null" @click="switchView('year')">Year</button>
+      <button class="view-tab" :class="{ active: view === 'month' }" :aria-current="view === 'month' ? 'page' : null" @click="switchView('month')">Month</button>
+      <button class="view-tab" :class="{ active: view === 'day' }" :aria-current="view === 'day' ? 'page' : null" @click="switchView('day')">Day</button>
+      <button class="view-tab" :class="{ active: view === 'backlog' }" :aria-current="view === 'backlog' ? 'page' : null" @click="switchView('backlog')">Backlog</button>
+      <button class="view-tab" :class="{ active: view === 'payments' }" :aria-current="view === 'payments' ? 'page' : null" @click="switchView('payments')">Payments</button>
+      <button class="view-tab" :class="{ active: view === 'projects' }" :aria-current="view === 'projects' ? 'page' : null" @click="switchView('projects')">Projects</button>
     </div>
     <div class="nav-right">
-      <input class="search-input" type="text" placeholder="Search titles, notes, tags..." x-model="searchQuery" x-ref="searchInput" @keydown.escape="searchQuery = ''; $el.blur()">
+      <label for="nav-search" class="visually-hidden">Search tasks</label>
+      <input id="nav-search" class="search-input" type="text" placeholder="Search titles, notes, tags..." x-model="searchQuery" x-ref="searchInput" @keydown.escape="searchQuery = ''; $el.blur()">
       <template x-if="!isListView()">
         <button class="btn-ghost" @click="goToday()">Today</button>
       </template>
@@ -1280,25 +1580,25 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
         <button class="btn-ghost" @click="clearDone()" title="Clear completed">Clear done</button>
       </template>
       <button class="btn-ghost" @click="openBackupsModal()" title="Backups">Backups</button>
-      <button class="btn-ghost" @click="showCalendarModal = true" title="Calendar feed">Calendar</button>
-      <button class="btn-ghost" @click="adjustFontSize(-10)" title="Decrease font size" style="font-size:0.75rem;padding:5px 6px">A&#8722;</button>
-      <button class="btn-ghost" @click="adjustFontSize(10)" title="Increase font size" style="font-size:0.75rem;padding:5px 6px">A+</button>
+      <button class="btn-ghost" @click="showCalendarModal = true; _openModal('calendarDialog')" title="Calendar feed">Calendar</button>
+      <button class="btn-ghost" @click="adjustFontSize(-10)" title="Decrease font size" aria-label="Decrease font size" style="font-size:0.75rem">A&#8722;</button>
+      <button class="btn-ghost" @click="adjustFontSize(10)" title="Increase font size" aria-label="Increase font size" style="font-size:0.75rem">A+</button>
       <button class="btn-ghost" @click="togglePriorityMode()" :title="priorityMode === 'priority' ? 'Switch to Eisenhower matrix' : 'Switch to P0–P3 priorities'" x-text="priorityMode === 'priority' ? 'P0–P3' : 'Eisenhower'"></button>
-      <button class="theme-toggle" @click="toggleTheme()" :title="darkMode ? 'Switch to light mode' : 'Switch to dark mode'" x-text="darkMode ? '&#9788;' : '&#9790;'"></button>
-      <button class="btn-primary" @click="view === 'projects' ? openProjectModal() : openAddModal()"
+      <button type="button" class="theme-toggle" @click="toggleTheme()" :title="darkMode ? 'Switch to light mode' : 'Switch to dark mode'" :aria-label="darkMode ? 'Switch to light mode' : 'Switch to dark mode'" x-text="darkMode ? '&#9788;' : '&#9790;'"></button>
+      <button class="btn-primary" x-ref="addButton" @click="view === 'projects' ? openProjectModal() : openAddModal()"
               x-text="view === 'projects' ? '+ Project' : '+ Add'"></button>
     </div>
   </nav>
 
   <!-- Period Navigation (hidden on projects view) -->
-  <div class="period-nav" x-show="!isListView() && tasks.length > 0">
-    <button class="btn-nav" @click="prevPeriod()">&#8249;</button>
+  <div class="period-nav" x-show="!isListView() && tasks.length > 0" x-effect="$el.inert = anyModalOpen()">
+    <button type="button" class="btn-nav" @click="prevPeriod()" aria-label="Previous period">&#8249;</button>
     <span class="period-label" x-text="getPeriodLabel()"></span>
-    <button class="btn-nav" @click="nextPeriod()">&#8250;</button>
+    <button type="button" class="btn-nav" @click="nextPeriod()" aria-label="Next period">&#8250;</button>
   </div>
 
   <!-- Main Content -->
-  <main class="content">
+  <main class="content" x-effect="$el.inert = anyModalOpen()">
     <div class="tag-bar" x-show="tasks.length > 0 && (tagCounts().length || tagFilter)">
       <template x-for="item in tagCounts()" :key="item.tag">
         <button type="button" class="tag-filter" :class="{ active: tagFilter === item.tag }" :data-tag="item.tag" @click="setTagFilter(item.tag)">
@@ -1354,33 +1654,34 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
               <div>
                 <div class="task-row" :class="{ done: task.done }" :data-task-id="task.id">
                   <span class="type-dot" :class="task.type || 'task'"></span>
-                  <div class="checkbox-wrap" @click="toggleDone(task)">
+                  <button type="button" class="checkbox-wrap" role="checkbox" :aria-checked="task.done ? 'true' : 'false'" :aria-label="'Done: ' + task.title" @click="toggleDone(task)">
                     <div class="checkbox" :class="{ checked: task.done }">
                       <svg x-show="task.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
-                  </div>
+                  </button>
                   <div class="task-info">
-                    <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
+                    <button type="button" class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)"></button>
                     <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
                       <template x-for="tag in (task.tags || [])" :key="tag">
                         <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
                       </template>
-                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" :aria-label="'Edit tags: ' + task.title" title="Edit tags">+</button>
                       <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
                     </div>
-                    <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
+                    <button type="button" class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)"></button>
                     <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
-                      <span class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+                      <button type="button" class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+                            :aria-expanded="expandedSubtasks[task.id] ? 'true' : 'false'"
                             x-text="(expandedSubtasks[task.id] ? '&#9662;' : '&#9656;') + ' Subtasks ' + subtaskProgress(task)">
-                      </span>
+                      </button>
                     </div>
                   </div>
-                  <span class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" @click="cycleRecurrence(task)" style="cursor:pointer">&#x21bb;</span>
+                  <button type="button" class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" :aria-label="task.recurrence ? 'Recurrence: ' + recurrenceLabel(task) : 'Make recurring'" @click="cycleRecurrence(task)">&#x21bb;</button>
                   <span class="priority-chip" :class="'priority-' + task.priority" x-text="priorityLabel(task.priority)" @wheel.prevent="scrollPriority(task, $event)" :title="priorityTooltip(task.priority)" style="cursor:ns-resize"></span>
                   <span class="task-date" x-text="shortDate(task.date)"></span>
-                  <button class="btn-delete" @click="deleteTask(task.id)" title="Delete">
+                  <button type="button" class="btn-delete" @click="deleteTask(task.id)" title="Delete" :aria-label="'Delete: ' + task.title">
                     <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                   </button>
                 </div>
@@ -1389,25 +1690,29 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                     <div class="subtask-row" :data-sub-id="sub.id">
                       <span class="drag-handle"><svg viewBox="0 0 8 12" width="8" height="12"><circle cx="2.5" cy="2" r="1" fill="currentColor"/><circle cx="5.5" cy="2" r="1" fill="currentColor"/><circle cx="2.5" cy="6" r="1" fill="currentColor"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><circle cx="2.5" cy="10" r="1" fill="currentColor"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/></svg></span>
                       <span class="subtask-num" x-text="si + 1"></span>
-                      <div class="subtask-check" :class="{ checked: sub.done }" @click="toggleSubtask(task.id, sub)">
+                      <button type="button" class="subtask-check" :class="{ checked: sub.done }" role="checkbox" :aria-checked="sub.done ? 'true' : 'false'" :aria-label="'Done: ' + sub.title" @click="toggleSubtask(task.id, sub)">
                         <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                      </div>
-                      <span class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)" style="cursor:text"></span>
+                      </button>
+                      <button type="button" class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)"></button>
                       <input x-show="editingSubtaskId === sub.id" class="subtask-title-edit" type="text" :value="sub.title" @blur="saveSubtitle(task.id, sub, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingSubtaskId = null" x-effect="if (editingSubtaskId === sub.id) $nextTick(() => $el.focus())">
-                      <button class="subtask-delete" @click="deleteSubtask(task.id, sub.id)">
+                      <button type="button" class="subtask-delete" @click="deleteSubtask(task.id, sub.id)" :aria-label="'Delete subtask: ' + sub.title">
                         <svg viewBox="0 0 16 16" width="10" height="10"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                       </button>
                     </div>
                   </template>
                   <div class="subtask-add">
-                    <input type="text" placeholder="Add subtask..." @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
+                    <input type="text" placeholder="Add subtask..." aria-label="Add subtask" @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
                   </div>
                 </div>
               </div>
             </template>
           </div>
         </template>
-        <div class="empty-state" x-show="allTasks().length === 0">No tasks.</div>
+        <div class="empty-state" x-show="allTasks().length === 0">
+          <p x-text="searchQuery || tagFilter ? 'No tasks match your filters.' : 'No tasks yet.'"></p>
+          <button type="button" class="btn-primary" x-show="!searchQuery && !tagFilter" @click="openAddModal()">Add task</button>
+          <button type="button" class="btn-ghost" x-show="searchQuery || tagFilter" @click="searchQuery = ''; clearTagFilter()">Clear filters</button>
+        </div>
       </div>
     </template>
 
@@ -1423,31 +1728,32 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
               <div class="task-row" :class="{ done: task.done }" :data-task-id="task.id">
                 <span class="drag-handle"><svg viewBox="0 0 10 16" width="10" height="16"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="8" r="1.2" fill="currentColor"/><circle cx="7" cy="8" r="1.2" fill="currentColor"/><circle cx="3" cy="13" r="1.2" fill="currentColor"/><circle cx="7" cy="13" r="1.2" fill="currentColor"/></svg></span>
                 <span class="type-dot task"></span>
-                <div class="checkbox-wrap" @click="toggleDone(task)">
+                <button type="button" class="checkbox-wrap" role="checkbox" :aria-checked="task.done ? 'true' : 'false'" :aria-label="'Done: ' + task.title" @click="toggleDone(task)">
                   <div class="checkbox" :class="{ checked: task.done }">
                     <svg x-show="task.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   </div>
-                </div>
+                </button>
                 <div class="task-info">
-                  <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
+                  <button type="button" class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)"></button>
                   <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
                   <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
                     <template x-for="tag in (task.tags || [])" :key="tag">
                       <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
                     </template>
-                    <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                    <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" :aria-label="'Edit tags: ' + task.title" title="Edit tags">+</button>
                     <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
                   </div>
-                  <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
+                  <button type="button" class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)"></button>
                   <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                   <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
-                    <span class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
-                          x-text="(expandedSubtasks[task.id] ? '&#9662;' : '&#9656;') + ' Subtasks ' + subtaskProgress(task)">
-                    </span>
+                    <button type="button" class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+        :aria-expanded="expandedSubtasks[task.id] ? 'true' : 'false'"
+        x-text="(expandedSubtasks[task.id] ? '&#9662;' : '&#9656;') + ' Subtasks ' + subtaskProgress(task)">
+      </button>
                   </div>
                 </div>
                 <span class="priority-chip priority-P3" x-text="priorityLabel('P3')"></span>
-                <button class="btn-delete" @click="deleteTask(task.id)" title="Delete">
+                <button type="button" class="btn-delete" @click="deleteTask(task.id)" title="Delete" :aria-label="'Delete: ' + task.title">
                   <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                 </button>
               </div>
@@ -1456,24 +1762,28 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                   <div class="subtask-row" :data-sub-id="sub.id">
                     <span class="drag-handle"><svg viewBox="0 0 8 12" width="8" height="12"><circle cx="2.5" cy="2" r="1" fill="currentColor"/><circle cx="5.5" cy="2" r="1" fill="currentColor"/><circle cx="2.5" cy="6" r="1" fill="currentColor"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><circle cx="2.5" cy="10" r="1" fill="currentColor"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/></svg></span>
                     <span class="subtask-num" x-text="si + 1"></span>
-                    <div class="subtask-check" :class="{ checked: sub.done }" @click="toggleSubtask(task.id, sub)">
-                      <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    </div>
-                    <span class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)" style="cursor:text"></span>
+                    <button type="button" class="subtask-check" :class="{ checked: sub.done }" role="checkbox" :aria-checked="sub.done ? 'true' : 'false'" :aria-label="'Done: ' + sub.title" @click="toggleSubtask(task.id, sub)">
+                        <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </button>
+                    <button type="button" class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)"></button>
                     <input x-show="editingSubtaskId === sub.id" class="subtask-title-edit" type="text" :value="sub.title" @blur="saveSubtitle(task.id, sub, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingSubtaskId = null" x-effect="if (editingSubtaskId === sub.id) $nextTick(() => $el.focus())">
-                    <button class="subtask-delete" @click="deleteSubtask(task.id, sub.id)">
+                    <button type="button" class="subtask-delete" @click="deleteSubtask(task.id, sub.id)" :aria-label="'Delete subtask: ' + sub.title">
                       <svg viewBox="0 0 16 16" width="10" height="10"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                     </button>
                   </div>
                 </template>
                 <div class="subtask-add">
-                  <input type="text" placeholder="Add subtask..." @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
+                  <input type="text" placeholder="Add subtask..." aria-label="Add subtask" @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
                 </div>
               </div>
             </div>
           </template>
         </div>
-        <div class="empty-state" x-show="backlogTasks().length === 0">No backlog items. P3 tasks appear here.</div>
+        <div class="empty-state" x-show="backlogTasks().length === 0">
+          <p x-text="searchQuery || tagFilter ? 'No backlog items match your filters.' : 'No backlog items. P3 tasks appear here.'"></p>
+          <button type="button" class="btn-primary" x-show="!searchQuery && !tagFilter" @click="openAddModal()">Add task</button>
+          <button type="button" class="btn-ghost" x-show="searchQuery || tagFilter" @click="searchQuery = ''; clearTagFilter()">Clear filters</button>
+        </div>
       </div>
     </template>
 
@@ -1493,30 +1803,30 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
               <div>
                 <div class="task-row" :class="{ done: task.done }" :data-task-id="task.id">
                   <span class="type-dot payment"></span>
-                  <div class="checkbox-wrap" @click="toggleDone(task)">
+                  <button type="button" class="checkbox-wrap" role="checkbox" :aria-checked="task.done ? 'true' : 'false'" :aria-label="'Done: ' + task.title" @click="toggleDone(task)">
                     <div class="checkbox" :class="{ checked: task.done }">
                       <svg x-show="task.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
-                  </div>
+                  </button>
                   <div class="task-info">
-                    <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
+                    <button type="button" class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)"></button>
                     <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
                       <template x-for="tag in (task.tags || [])" :key="tag">
                         <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
                       </template>
-                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" :aria-label="'Edit tags: ' + task.title" title="Edit tags">+</button>
                       <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
                     </div>
-                    <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
+                    <button type="button" class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)"></button>
                     <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-meta">
                       <span x-text="task.date"></span>
-                      <span class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" @click="cycleRecurrence(task)" style="cursor:pointer">&#x21bb;</span>
+                      <button type="button" class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" :aria-label="task.recurrence ? 'Recurrence: ' + recurrenceLabel(task) : 'Make recurring'" @click="cycleRecurrence(task)">&#x21bb;</button>
                     </div>
                   </div>
                   <span class="payment-amount" x-show="task.amount" x-text="currencySymbol(task.currency || 'CHF') + task.amount"></span>
-                  <button class="btn-delete" @click="deleteTask(task.id)" title="Delete">
+                  <button type="button" class="btn-delete" @click="deleteTask(task.id)" title="Delete" :aria-label="'Delete: ' + task.title">
                     <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                   </button>
                 </div>
@@ -1524,7 +1834,11 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
             </template>
           </div>
         </template>
-        <div class="empty-state" x-show="paymentTasks().length === 0">No payments. Add a task with type "Payment" to track bills.</div>
+        <div class="empty-state" x-show="paymentTasks().length === 0">
+          <p x-text="searchQuery || tagFilter ? 'No payments match your filters.' : 'No payments. Add a task with type &quot;Payment&quot; to track bills.'"></p>
+          <button type="button" class="btn-primary" x-show="!searchQuery && !tagFilter" @click="openAddModal()">Add task</button>
+          <button type="button" class="btn-ghost" x-show="searchQuery || tagFilter" @click="searchQuery = ''; clearTagFilter()">Clear filters</button>
+        </div>
       </div>
     </template>
 
@@ -1545,32 +1859,33 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                     <div>
                       <div class="task-row" :class="{ done: task.done }" :data-task-id="task.id">
                         <span class="type-dot" :class="task.type || 'task'"></span>
-                        <div class="checkbox-wrap" @click="toggleDone(task)">
+                        <button type="button" class="checkbox-wrap" role="checkbox" :aria-checked="task.done ? 'true' : 'false'" :aria-label="'Done: ' + task.title" @click="toggleDone(task)">
                           <div class="checkbox" :class="{ checked: task.done }">
                             <svg x-show="task.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                           </div>
-                        </div>
+                        </button>
                         <div class="task-info">
-                          <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
+                          <button type="button" class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)"></button>
                         <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
                         <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
                           <template x-for="tag in (task.tags || [])" :key="tag">
                             <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
                           </template>
-                          <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                          <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" :aria-label="'Edit tags: ' + task.title" title="Edit tags">+</button>
                           <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
                         </div>
-                          <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
+                          <button type="button" class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)"></button>
                         <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                           <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
-                            <span class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
-                                  x-text="(expandedSubtasks[task.id] ? '&#9662;' : '&#9656;') + ' Subtasks ' + subtaskProgress(task)">
-                            </span>
+                            <button type="button" class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+        :aria-expanded="expandedSubtasks[task.id] ? 'true' : 'false'"
+        x-text="(expandedSubtasks[task.id] ? '&#9662;' : '&#9656;') + ' Subtasks ' + subtaskProgress(task)">
+      </button>
                           </div>
                         </div>
-                        <span class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" @click="cycleRecurrence(task)" style="cursor:pointer">&#x21bb;</span>
+                        <button type="button" class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" :aria-label="task.recurrence ? 'Recurrence: ' + recurrenceLabel(task) : 'Make recurring'" @click="cycleRecurrence(task)">&#x21bb;</button>
                         <span class="priority-chip" :class="'priority-' + task.priority" x-text="priorityLabel(task.priority)" @wheel.prevent="scrollPriority(task, $event)" :title="priorityTooltip(task.priority)" style="cursor:ns-resize"></span>
-                        <button class="btn-delete" @click="deleteTask(task.id)" title="Delete">
+                        <button type="button" class="btn-delete" @click="deleteTask(task.id)" title="Delete" :aria-label="'Delete: ' + task.title">
                           <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                         </button>
                       </div>
@@ -1580,18 +1895,18 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                           <div class="subtask-row" :data-sub-id="sub.id">
                             <span class="drag-handle"><svg viewBox="0 0 8 12" width="8" height="12"><circle cx="2.5" cy="2" r="1" fill="currentColor"/><circle cx="5.5" cy="2" r="1" fill="currentColor"/><circle cx="2.5" cy="6" r="1" fill="currentColor"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><circle cx="2.5" cy="10" r="1" fill="currentColor"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/></svg></span>
                             <span class="subtask-num" x-text="si + 1"></span>
-                            <div class="subtask-check" :class="{ checked: sub.done }" @click="toggleSubtask(task.id, sub)">
-                              <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            </div>
-                            <span class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)" style="cursor:text"></span>
+                            <button type="button" class="subtask-check" :class="{ checked: sub.done }" role="checkbox" :aria-checked="sub.done ? 'true' : 'false'" :aria-label="'Done: ' + sub.title" @click="toggleSubtask(task.id, sub)">
+                        <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </button>
+                            <button type="button" class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)"></button>
                       <input x-show="editingSubtaskId === sub.id" class="subtask-title-edit" type="text" :value="sub.title" @blur="saveSubtitle(task.id, sub, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingSubtaskId = null" x-effect="if (editingSubtaskId === sub.id) $nextTick(() => $el.focus())">
-                            <button class="subtask-delete" @click="deleteSubtask(task.id, sub.id)">
+                            <button type="button" class="subtask-delete" @click="deleteSubtask(task.id, sub.id)" :aria-label="'Delete subtask: ' + sub.title">
                               <svg viewBox="0 0 16 16" width="10" height="10"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                             </button>
                           </div>
                         </template>
                         <div class="subtask-add">
-                          <input type="text" placeholder="Add subtask..." @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
+                          <input type="text" placeholder="Add subtask..." aria-label="Add subtask" @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
                         </div>
                       </div>
                     </div>
@@ -1601,7 +1916,11 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
             </div>
           </template>
         </div>
-        <div class="empty-state" x-show="monthsWithTasks(year).length === 0">No tasks for this year.</div>
+        <div class="empty-state" x-show="monthsWithTasks(year).length === 0">
+          <p x-text="searchQuery || tagFilter ? 'No tasks match your filters.' : 'No tasks for this year.'"></p>
+          <button type="button" class="btn-primary" x-show="!searchQuery && !tagFilter" @click="openAddModal()">Add task</button>
+          <button type="button" class="btn-ghost" x-show="searchQuery || tagFilter" @click="searchQuery = ''; clearTagFilter()">Clear filters</button>
+        </div>
       </div>
     </template>
 
@@ -1618,20 +1937,29 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
           <template x-for="(week, wi) in getCalendarData(year, month)" :key="wi">
             <div class="cal-week">
               <template x-for="(cell, ci) in week" :key="ci">
-                <div class="cal-cell"
+                <div class="cal-slot">
+                <template x-if="cell.day">
+                  <button type="button" class="cal-cell"
                      :class="{ empty: !cell.day, today: cell.isToday, 'has-tasks': cell.count > 0, selected: cell.dateStr === selectedCalDay }"
-                     @click="cell.day && selectCalDay(year, month, cell.day)">
-                  <span class="cal-day-num" x-show="cell.day" x-text="cell.day"></span>
-                  <div class="cal-meta" x-show="cell.day && cell.count > 0">
-                    <div class="cal-dots">
-                      <span class="cal-dot deadline-dot" x-show="cell.hasDeadline"></span>
-                      <span class="cal-dot reminder-dot" x-show="cell.hasReminder"></span>
-                      <span class="cal-dot" x-show="!cell.hasDeadline && !cell.hasReminder"
-                            :style="cell.topPriority ? 'background:' + priorityColor(cell.topPriority) : ''"></span>
-                      <span class="cal-recurrence-icon" x-show="cell.hasRecurring">&#x21bb;</span>
+                     :aria-label="cell.dateStr + (cell.count ? ', ' + cell.count + ' open' : '')"
+                     :aria-pressed="cell.dateStr === selectedCalDay ? 'true' : 'false'"
+                     @click="selectCalDay(year, month, cell.day)">
+                    <span class="cal-day-num" x-text="cell.day"></span>
+                    <div class="cal-meta" x-show="cell.count > 0">
+                      <div class="cal-dots">
+                        <span class="cal-dot deadline-dot" x-show="cell.hasDeadline"></span>
+                        <span class="cal-dot reminder-dot" x-show="cell.hasReminder"></span>
+                        <span class="cal-dot" x-show="!cell.hasDeadline && !cell.hasReminder"
+                              :style="cell.topPriority ? 'background:' + priorityColor(cell.topPriority) : ''"></span>
+                        <span class="cal-recurrence-icon" x-show="cell.hasRecurring">&#x21bb;</span>
+                      </div>
+                      <span class="cal-count" x-text="cell.count + ' left'"></span>
                     </div>
-                    <span class="cal-count" x-text="cell.count + ' left'"></span>
-                  </div>
+                  </button>
+                </template>
+                <template x-if="!cell.day">
+                  <div class="cal-cell empty"></div>
+                </template>
                 </div>
               </template>
             </div>
@@ -1650,33 +1978,34 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
               <div>
                 <div class="task-row" :class="{ done: task.done }" :data-task-id="task.id">
                   <span class="type-dot" :class="task.type || 'task'"></span>
-                  <div class="checkbox-wrap" @click="toggleDone(task)">
+                  <button type="button" class="checkbox-wrap" role="checkbox" :aria-checked="task.done ? 'true' : 'false'" :aria-label="'Done: ' + task.title" @click="toggleDone(task)">
                     <div class="checkbox" :class="{ checked: task.done }">
                       <svg x-show="task.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
-                  </div>
+                  </button>
                   <div class="task-info">
-                    <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
+                    <button type="button" class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)"></button>
                     <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
                       <template x-for="tag in (task.tags || [])" :key="tag">
                         <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
                       </template>
-                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" :aria-label="'Edit tags: ' + task.title" title="Edit tags">+</button>
                       <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
                     </div>
-                    <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
+                    <button type="button" class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)"></button>
                     <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
-                      <span class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+                      <button type="button" class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+                            :aria-expanded="expandedSubtasks[task.id] ? 'true' : 'false'"
                             x-text="(expandedSubtasks[task.id] ? '&#9662;' : '&#9656;') + ' Subtasks ' + subtaskProgress(task)">
-                      </span>
+                      </button>
                     </div>
                   </div>
-                  <span class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" @click="cycleRecurrence(task)" style="cursor:pointer">&#x21bb;</span>
+                  <button type="button" class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" :aria-label="task.recurrence ? 'Recurrence: ' + recurrenceLabel(task) : 'Make recurring'" @click="cycleRecurrence(task)">&#x21bb;</button>
                   <span class="priority-chip" :class="'priority-' + task.priority" x-text="priorityLabel(task.priority)" @wheel.prevent="scrollPriority(task, $event)" :title="priorityTooltip(task.priority)" style="cursor:ns-resize"></span>
                   <span class="task-date" x-text="shortDate(task.date)"></span>
-                  <button class="btn-delete" @click="deleteTask(task.id)" title="Delete">
+                  <button type="button" class="btn-delete" @click="deleteTask(task.id)" title="Delete" :aria-label="'Delete: ' + task.title">
                     <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                   </button>
                 </div>
@@ -1686,25 +2015,29 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                     <div class="subtask-row" :data-sub-id="sub.id">
                       <span class="drag-handle"><svg viewBox="0 0 8 12" width="8" height="12"><circle cx="2.5" cy="2" r="1" fill="currentColor"/><circle cx="5.5" cy="2" r="1" fill="currentColor"/><circle cx="2.5" cy="6" r="1" fill="currentColor"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><circle cx="2.5" cy="10" r="1" fill="currentColor"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/></svg></span>
                       <span class="subtask-num" x-text="si + 1"></span>
-                      <div class="subtask-check" :class="{ checked: sub.done }" @click="toggleSubtask(task.id, sub)">
+                      <button type="button" class="subtask-check" :class="{ checked: sub.done }" role="checkbox" :aria-checked="sub.done ? 'true' : 'false'" :aria-label="'Done: ' + sub.title" @click="toggleSubtask(task.id, sub)">
                         <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                      </div>
-                      <span class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)" style="cursor:text"></span>
+                      </button>
+                      <button type="button" class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)"></button>
                       <input x-show="editingSubtaskId === sub.id" class="subtask-title-edit" type="text" :value="sub.title" @blur="saveSubtitle(task.id, sub, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingSubtaskId = null" x-effect="if (editingSubtaskId === sub.id) $nextTick(() => $el.focus())">
-                      <button class="subtask-delete" @click="deleteSubtask(task.id, sub.id)">
+                      <button type="button" class="subtask-delete" @click="deleteSubtask(task.id, sub.id)" :aria-label="'Delete subtask: ' + sub.title">
                         <svg viewBox="0 0 16 16" width="10" height="10"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                       </button>
                     </div>
                   </template>
                   <div class="subtask-add">
-                    <input type="text" placeholder="Add subtask..." @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
+                    <input type="text" placeholder="Add subtask..." aria-label="Add subtask" @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
                   </div>
                 </div>
               </div>
             </template>
           </div>
         </template>
-        <div class="empty-state" x-show="monthViewTasks().length === 0" x-text="selectedCalDay ? 'No tasks for this day.' : 'No tasks for this month.'"></div>
+        <div class="empty-state" x-show="monthViewTasks().length === 0">
+          <p x-text="searchQuery || tagFilter ? 'No tasks match your filters.' : (selectedCalDay ? 'No tasks for this day.' : 'No tasks for this month.')"></p>
+          <button type="button" class="btn-primary" x-show="!searchQuery && !tagFilter" @click="openAddModal()">Add task</button>
+          <button type="button" class="btn-ghost" x-show="searchQuery || tagFilter" @click="searchQuery = ''; clearTagFilter()">Clear filters</button>
+        </div>
       </div>
     </template>
 
@@ -1718,32 +2051,33 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
           <div>
             <div class="task-row" :class="{ done: task.done }" :data-task-id="task.id">
               <span class="type-dot" :class="task.type || 'task'"></span>
-              <div class="checkbox-wrap" @click="toggleDone(task)">
+              <button type="button" class="checkbox-wrap" role="checkbox" :aria-checked="task.done ? 'true' : 'false'" :aria-label="'Done: ' + task.title" @click="toggleDone(task)">
                 <div class="checkbox" :class="{ checked: task.done }">
                   <svg x-show="task.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
-              </div>
+              </button>
               <div class="task-info">
-                <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
+                <button type="button" class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)"></button>
                 <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
                 <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
                   <template x-for="tag in (task.tags || [])" :key="tag">
                     <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
                   </template>
-                  <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                  <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" :aria-label="'Edit tags: ' + task.title" title="Edit tags">+</button>
                   <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
                 </div>
-                <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
+                <button type="button" class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)"></button>
                 <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                 <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
-                  <span class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+                  <button type="button" class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+                        :aria-expanded="expandedSubtasks[task.id] ? 'true' : 'false'"
                         x-text="(expandedSubtasks[task.id] ? '&#9662;' : '&#9656;') + ' Subtasks ' + subtaskProgress(task)">
-                  </span>
+                  </button>
                 </div>
               </div>
-              <span class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" @click="cycleRecurrence(task)" style="cursor:pointer">&#x21bb;</span>
+              <button type="button" class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" :aria-label="task.recurrence ? 'Recurrence: ' + recurrenceLabel(task) : 'Make recurring'" @click="cycleRecurrence(task)">&#x21bb;</button>
               <span class="priority-chip" :class="'priority-' + task.priority" x-text="priorityLabel(task.priority)" @wheel.prevent="scrollPriority(task, $event)" :title="priorityTooltip(task.priority)" style="cursor:ns-resize"></span>
-              <button class="btn-delete" @click="deleteTask(task.id)" title="Delete">
+              <button type="button" class="btn-delete" @click="deleteTask(task.id)" title="Delete" :aria-label="'Delete: ' + task.title">
                 <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
               </button>
             </div>
@@ -1753,23 +2087,27 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                 <div class="subtask-row" :data-sub-id="sub.id">
                   <span class="drag-handle"><svg viewBox="0 0 8 12" width="8" height="12"><circle cx="2.5" cy="2" r="1" fill="currentColor"/><circle cx="5.5" cy="2" r="1" fill="currentColor"/><circle cx="2.5" cy="6" r="1" fill="currentColor"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><circle cx="2.5" cy="10" r="1" fill="currentColor"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/></svg></span>
                   <span class="subtask-num" x-text="si + 1"></span>
-                  <div class="subtask-check" :class="{ checked: sub.done }" @click="toggleSubtask(task.id, sub)">
-                    <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  </div>
-                  <span class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)" style="cursor:text"></span>
+                  <button type="button" class="subtask-check" :class="{ checked: sub.done }" role="checkbox" :aria-checked="sub.done ? 'true' : 'false'" :aria-label="'Done: ' + sub.title" @click="toggleSubtask(task.id, sub)">
+                        <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </button>
+                  <button type="button" class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)"></button>
                   <input x-show="editingSubtaskId === sub.id" class="subtask-title-edit" type="text" :value="sub.title" @blur="saveSubtitle(task.id, sub, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingSubtaskId = null" x-effect="if (editingSubtaskId === sub.id) $nextTick(() => $el.focus())">
-                  <button class="subtask-delete" @click="deleteSubtask(task.id, sub.id)">
+                  <button type="button" class="subtask-delete" @click="deleteSubtask(task.id, sub.id)" :aria-label="'Delete subtask: ' + sub.title">
                     <svg viewBox="0 0 16 16" width="10" height="10"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                   </button>
                 </div>
               </template>
               <div class="subtask-add">
-                <input type="text" placeholder="Add subtask..." @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
+                <input type="text" placeholder="Add subtask..." aria-label="Add subtask" @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
               </div>
             </div>
           </div>
         </template>
-        <div class="empty-state" x-show="tasksForDate(day).length === 0">No tasks for this day.</div>
+        <div class="empty-state" x-show="tasksForDate(day).length === 0">
+          <p x-text="searchQuery || tagFilter ? 'No tasks match your filters.' : 'No tasks for this day.'"></p>
+          <button type="button" class="btn-primary" x-show="!searchQuery && !tagFilter" @click="openAddModal()">Add task</button>
+          <button type="button" class="btn-ghost" x-show="searchQuery || tagFilter" @click="searchQuery = ''; clearTagFilter()">Clear filters</button>
+        </div>
       </div>
     </template>
 
@@ -1783,10 +2121,10 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
           <div class="project-card">
             <div class="project-header">
               <span class="project-name" x-text="proj.name"></span>
-              <span class="status-badge" :class="'status-' + proj.status"
+              <button type="button" class="status-badge" :class="'status-' + proj.status"
                     @click="cycleProjectStatus(proj)"
-                    x-text="proj.status" :title="'Click to change status'"></span>
-              <button class="project-delete" @click="deleteProject(proj.id)" title="Delete project">
+                    x-text="proj.status" :title="'Click to change status'"></button>
+              <button type="button" class="project-delete" @click="deleteProject(proj.id)" title="Delete project" :aria-label="'Delete project: ' + proj.name">
                 <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
               </button>
             </div>
@@ -1799,11 +2137,11 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                 <div class="entry-row">
                   <span class="entry-date" x-text="shortEntryDate(entry.date)"></span>
                   <span class="entry-summary" x-text="entry.summary"></span>
-                  <button class="entry-delete" @click="deleteEntry(proj.id, entry.id)">&#x2715;</button>
+                  <button type="button" class="entry-delete" @click="deleteEntry(proj.id, entry.id)" :aria-label="'Delete entry: ' + entry.summary">&#x2715;</button>
                 </div>
               </template>
               <div class="entry-add-form">
-                <input type="text" :placeholder="'Add entry...'"
+                <input type="text" :placeholder="'Add entry...'" aria-label="Add project entry"
                        @keydown.enter="addEntry(proj.id, $event)"
                        @keydown.escape.stop="$event.target.blur()">
                 <button class="btn-sm" @click="addEntry(proj.id, $event)">+ Add</button>
@@ -1811,48 +2149,52 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
             </div>
           </div>
         </template>
-        <div class="empty-state" x-show="projects.length === 0">No projects yet. Click + Project to create one.</div>
+        <div class="empty-state" x-show="projects.length === 0">
+          <p>No projects yet. Create one to get started.</p>
+          <button type="button" class="btn-primary" @click="openProjectModal()">Add project</button>
+        </div>
       </div>
     </template>
 
     <!-- Backlog Panel (persistent on task views) -->
     <div class="collapsible-panel" x-show="!isListView() && backlogTasks().length > 0">
-      <div class="collapsible-header" @click="showBacklog = !showBacklog">
+      <button type="button" class="collapsible-header" @click="showBacklog = !showBacklog" :aria-expanded="showBacklog ? 'true' : 'false'">
         <span class="collapsible-arrow" x-text="showBacklog ? '&#9662;' : '&#9656;'"></span>
         <span class="collapsible-title">Backlog</span>
         <span class="collapsible-count" x-text="backlogTasks().length + ' items'"></span>
-      </div>
+      </button>
       <div x-show="showBacklog" x-ref="backlogList" x-effect="initBacklogSortable()">
         <template x-for="task in backlogTasks()" :key="task.id">
           <div :data-id="task.id">
             <div class="task-row" :class="{ done: task.done }" :data-task-id="task.id">
               <span class="drag-handle"><svg viewBox="0 0 10 16" width="10" height="16"><circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/><circle cx="3" cy="8" r="1.2" fill="currentColor"/><circle cx="7" cy="8" r="1.2" fill="currentColor"/><circle cx="3" cy="13" r="1.2" fill="currentColor"/><circle cx="7" cy="13" r="1.2" fill="currentColor"/></svg></span>
               <span class="type-dot task"></span>
-              <div class="checkbox-wrap" @click="toggleDone(task)">
+              <button type="button" class="checkbox-wrap" role="checkbox" :aria-checked="task.done ? 'true' : 'false'" :aria-label="'Done: ' + task.title" @click="toggleDone(task)">
                 <div class="checkbox" :class="{ checked: task.done }">
                   <svg x-show="task.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
-              </div>
+              </button>
               <div class="task-info">
-                <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
+                <button type="button" class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)"></button>
                 <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
                 <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
                   <template x-for="tag in (task.tags || [])" :key="tag">
                     <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
                   </template>
-                  <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                  <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" :aria-label="'Edit tags: ' + task.title" title="Edit tags">+</button>
                   <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
                 </div>
-                <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
+                <button type="button" class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)"></button>
                 <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                 <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
-                  <span class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+                  <button type="button" class="subtask-toggle" @click.stop="toggleSubtaskExpand(task.id)"
+                        :aria-expanded="expandedSubtasks[task.id] ? 'true' : 'false'"
                         x-text="(expandedSubtasks[task.id] ? '&#9662;' : '&#9656;') + ' Subtasks ' + subtaskProgress(task)">
-                  </span>
+                  </button>
                 </div>
               </div>
               <span class="priority-chip priority-P3" x-text="priorityLabel('P3')"></span>
-              <button class="btn-delete" @click="deleteTask(task.id)" title="Delete">
+              <button type="button" class="btn-delete" @click="deleteTask(task.id)" title="Delete" :aria-label="'Delete: ' + task.title">
                 <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
               </button>
             </div>
@@ -1861,18 +2203,18 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                 <div class="subtask-row" :data-sub-id="sub.id">
                   <span class="drag-handle"><svg viewBox="0 0 8 12" width="8" height="12"><circle cx="2.5" cy="2" r="1" fill="currentColor"/><circle cx="5.5" cy="2" r="1" fill="currentColor"/><circle cx="2.5" cy="6" r="1" fill="currentColor"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><circle cx="2.5" cy="10" r="1" fill="currentColor"/><circle cx="5.5" cy="10" r="1" fill="currentColor"/></svg></span>
                   <span class="subtask-num" x-text="si + 1"></span>
-                  <div class="subtask-check" :class="{ checked: sub.done }" @click="toggleSubtask(task.id, sub)">
-                    <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  </div>
-                  <span class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)" style="cursor:text"></span>
+                  <button type="button" class="subtask-check" :class="{ checked: sub.done }" role="checkbox" :aria-checked="sub.done ? 'true' : 'false'" :aria-label="'Done: ' + sub.title" @click="toggleSubtask(task.id, sub)">
+                        <svg x-show="sub.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      </button>
+                  <button type="button" class="subtask-title" :class="{ done: sub.done }" x-text="sub.title" x-show="editingSubtaskId !== sub.id" @click="startEditSubtitle(sub)"></button>
                   <input x-show="editingSubtaskId === sub.id" class="subtask-title-edit" type="text" :value="sub.title" @blur="saveSubtitle(task.id, sub, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingSubtaskId = null" x-effect="if (editingSubtaskId === sub.id) $nextTick(() => $el.focus())">
-                  <button class="subtask-delete" @click="deleteSubtask(task.id, sub.id)">
+                  <button type="button" class="subtask-delete" @click="deleteSubtask(task.id, sub.id)" :aria-label="'Delete subtask: ' + sub.title">
                     <svg viewBox="0 0 16 16" width="10" height="10"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                   </button>
                 </div>
               </template>
               <div class="subtask-add">
-                <input type="text" placeholder="Add subtask..." @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
+                <input type="text" placeholder="Add subtask..." aria-label="Add subtask" @keydown.enter="addSubtask(task.id, $event)" @keydown.escape.stop="$event.target.blur()">
               </div>
             </div>
           </div>
@@ -1882,11 +2224,11 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
 
     <!-- Payments Panel (persistent on task views) -->
     <div class="collapsible-panel" x-show="!isListView() && paymentTasks().length > 0">
-      <div class="collapsible-header" @click="showPayments = !showPayments">
+      <button type="button" class="collapsible-header" @click="showPayments = !showPayments" :aria-expanded="showPayments ? 'true' : 'false'">
         <span class="collapsible-arrow" x-text="showPayments ? '&#9662;' : '&#9656;'"></span>
         <span class="collapsible-title">Payments</span>
         <span class="collapsible-count" x-text="paymentTasks().length + ' items'"></span>
-      </div>
+      </button>
       <div x-show="showPayments">
         <template x-for="group in paymentsByMonth()" :key="group.key">
           <div class="payment-month-group">
@@ -1898,28 +2240,28 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
               <div>
                 <div class="task-row" :class="{ done: task.done }" :data-task-id="task.id">
                   <span class="type-dot payment"></span>
-                  <div class="checkbox-wrap" @click="toggleDone(task)">
+                  <button type="button" class="checkbox-wrap" role="checkbox" :aria-checked="task.done ? 'true' : 'false'" :aria-label="'Done: ' + task.title" @click="toggleDone(task)">
                     <div class="checkbox" :class="{ checked: task.done }">
                       <svg x-show="task.done" class="check-icon" viewBox="0 0 12 12"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
-                  </div>
+                  </button>
                   <div class="task-info">
-                    <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
+                    <button type="button" class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)"></button>
                     <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
                       <template x-for="tag in (task.tags || [])" :key="tag">
                         <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
                       </template>
-                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" :aria-label="'Edit tags: ' + task.title" title="Edit tags">+</button>
                       <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
                     </div>
                     <div class="task-meta">
                       <span x-text="task.date"></span>
-                      <span class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" @click="cycleRecurrence(task)" style="cursor:pointer">&#x21bb;</span>
+                      <button type="button" class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" :aria-label="task.recurrence ? 'Recurrence: ' + recurrenceLabel(task) : 'Make recurring'" @click="cycleRecurrence(task)">&#x21bb;</button>
                     </div>
                   </div>
                   <span class="payment-amount" x-show="task.amount" x-text="currencySymbol(task.currency || 'CHF') + task.amount"></span>
-                  <button class="btn-delete" @click="deleteTask(task.id)" title="Delete">
+                  <button type="button" class="btn-delete" @click="deleteTask(task.id)" title="Delete" :aria-label="'Delete: ' + task.title">
                     <svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                   </button>
                 </div>
@@ -1934,68 +2276,68 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
 
 
   <!-- Add Task Modal -->
-  <div class="modal-backdrop" x-show="showModal" x-transition.opacity @click.self="showModal = false" style="display:none">
-    <div class="modal" @click.stop x-show="showModal" x-transition>
+  <div class="modal-backdrop" x-show="showModal" x-transition.opacity @click.self="showModal = false; _closeModal()" style="display:none">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-task-title" @click.stop x-show="showModal" x-transition x-ref="addTaskDialog">
       <div class="modal-title">
-        Add Task
-        <button class="modal-close" @click="showModal = false">&times;</button>
+        <span id="add-task-title">Add Task</span>
+        <button type="button" class="modal-close" @click="showModal = false; _closeModal()" aria-label="Close dialog">&times;</button>
       </div>
       <form @submit.prevent="addTask()">
         <div class="form-group">
-          <label class="form-label">Title</label>
-          <input class="form-input" type="text" x-model="form.title" placeholder="Task title" x-ref="titleInput" autofocus>
+          <label class="form-label" for="task-title">Title</label>
+          <input id="task-title" class="form-input" type="text" x-model="form.title" placeholder="Task title" x-ref="titleInput">
         </div>
         <div class="form-group">
           <label class="form-label" for="task-tags">Tags</label>
           <input id="task-tags" class="form-input" type="text" x-model="form.tags" placeholder="travel, home">
         </div>
         <div class="form-group">
-          <label class="form-label">Date</label>
-          <input class="form-input" type="date" x-model="form.date" @change="updateRecurrenceFromForm()">
+          <label class="form-label" for="task-date">Date</label>
+          <input id="task-date" class="form-input" type="date" x-model="form.date" @change="updateRecurrenceFromForm()">
         </div>
         <div class="form-group">
-          <label class="form-label">Priority</label>
-          <div class="priority-selector">
+          <span class="form-label" id="task-priority-label">Priority</span>
+          <div class="priority-selector" role="group" aria-labelledby="task-priority-label">
             <template x-for="p in ['P0','P1','P2','P3']" :key="p">
-              <span class="priority-chip"
+              <button type="button" class="priority-chip"
                     :class="['priority-' + p, { selected: form.priority === p }]"
+                    :aria-pressed="form.priority === p ? 'true' : 'false'"
                     @click="form.priority = p"
-                    x-text="priorityLabel(p)"
-                    style="cursor:pointer"></span>
+                    x-text="priorityLabel(p)"></button>
             </template>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Type</label>
-          <div class="type-selector">
+          <span class="form-label" id="task-type-label">Type</span>
+          <div class="type-selector" role="group" aria-labelledby="task-type-label">
             <template x-for="t in ['task','deadline','reminder','payment']" :key="t">
-              <span class="type-chip"
+              <button type="button" class="type-chip"
                     :class="['type-' + t, { selected: form.type === t }]"
+                    :aria-pressed="form.type === t ? 'true' : 'false'"
                     @click="form.type = t"
-                    x-text="t.charAt(0).toUpperCase() + t.slice(1)"
-                    style="cursor:pointer"></span>
+                    x-text="t.charAt(0).toUpperCase() + t.slice(1)"></button>
             </template>
           </div>
         </div>
         <div class="form-group" x-show="form.type === 'payment'">
-          <label class="form-label">Amount</label>
-          <input class="form-input" type="text" x-model="form.amount" placeholder="e.g. 150.00">
+          <label class="form-label" for="task-amount">Amount</label>
+          <input id="task-amount" class="form-input" type="text" x-model="form.amount" placeholder="e.g. 150.00">
         </div>
         <div class="form-group" x-show="form.type === 'payment'">
-          <label class="form-label">Currency</label>
-          <div class="type-selector">
+          <span class="form-label" id="task-currency-label">Currency</span>
+          <div class="type-selector" role="group" aria-labelledby="task-currency-label">
             <template x-for="c in ['CHF','USD','EUR','BRL']" :key="c">
-              <span class="type-chip type-payment"
+              <button type="button" class="type-chip type-payment"
                     :class="{ selected: form.currency === c }"
+                    :aria-pressed="form.currency === c ? 'true' : 'false'"
                     @click="form.currency = c"
-                    x-text="c"
-                    style="cursor:pointer"></span>
+                    x-text="c"></button>
             </template>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Recurrence</label>
-          <select class="form-select" x-model="form.recurrenceType" @change="updateRecurrenceFromForm()">
+          <label class="form-label" for="task-recurrence">Recurrence</label>
+          <select id="task-recurrence" class="form-select" x-model="form.recurrenceType" @change="updateRecurrenceFromForm()">
             <option value="none">None</option>
             <option value="daily">Daily</option>
             <option value="weekdays">Weekdays</option>
@@ -2009,11 +2351,11 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
           <div class="recurrence-hint" x-show="form.recurrenceType !== 'none'" x-text="recurrenceHint()"></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Notes</label>
-          <input class="form-input" type="text" x-model="form.notes" placeholder="Optional notes">
+          <label class="form-label" for="task-notes">Notes</label>
+          <input id="task-notes" class="form-input" type="text" x-model="form.notes" placeholder="Optional notes">
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn-ghost" @click="showModal = false">Cancel</button>
+          <button type="button" class="btn-ghost" @click="showModal = false; _closeModal()">Cancel</button>
           <button type="submit" class="btn-primary">Add task</button>
         </div>
       </form>
@@ -2021,27 +2363,27 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   </div>
 
   <!-- Add Project Modal -->
-  <div class="modal-backdrop" x-show="showProjectModal" x-transition.opacity @click.self="showProjectModal = false" style="display:none">
-    <div class="modal" @click.stop x-show="showProjectModal" x-transition>
+  <div class="modal-backdrop" x-show="showProjectModal" x-transition.opacity @click.self="showProjectModal = false; _closeModal()" style="display:none">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-project-title" @click.stop x-show="showProjectModal" x-transition x-ref="addProjectDialog">
       <div class="modal-title">
-        Add Project
-        <button class="modal-close" @click="showProjectModal = false">&times;</button>
+        <span id="add-project-title">Add Project</span>
+        <button type="button" class="modal-close" @click="showProjectModal = false; _closeModal()" aria-label="Close dialog">&times;</button>
       </div>
       <form @submit.prevent="addProject()">
         <div class="form-group">
-          <label class="form-label">Name</label>
-          <input class="form-input" type="text" x-model="projectForm.name" placeholder="Project name" x-ref="projectNameInput" autofocus>
+          <label class="form-label" for="project-name">Name</label>
+          <input id="project-name" class="form-input" type="text" x-model="projectForm.name" placeholder="Project name" x-ref="projectNameInput">
         </div>
         <div class="form-group">
-          <label class="form-label">Repository URL</label>
-          <input class="form-input" type="text" x-model="projectForm.repo" placeholder="https://github.com/...">
+          <label class="form-label" for="project-repo">Repository URL</label>
+          <input id="project-repo" class="form-input" type="text" x-model="projectForm.repo" placeholder="https://github.com/...">
         </div>
         <div class="form-group">
-          <label class="form-label">Description</label>
-          <input class="form-input" type="text" x-model="projectForm.description" placeholder="Brief description">
+          <label class="form-label" for="project-desc">Description</label>
+          <input id="project-desc" class="form-input" type="text" x-model="projectForm.description" placeholder="Brief description">
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn-ghost" @click="showProjectModal = false">Cancel</button>
+          <button type="button" class="btn-ghost" @click="showProjectModal = false; _closeModal()">Cancel</button>
           <button type="submit" class="btn-primary">Create project</button>
         </div>
       </form>
@@ -2049,11 +2391,11 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   </div>
 
   <!-- Backups Modal -->
-  <div class="modal-backdrop" x-show="showBackupsModal" x-transition.opacity @click.self="showBackupsModal = false" style="display:none">
-    <div class="modal" @click.stop x-show="showBackupsModal" x-transition style="max-width:560px;width:95%">
+  <div class="modal-backdrop" x-show="showBackupsModal" x-transition.opacity @click.self="showBackupsModal = false; _closeModal()" style="display:none">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="backups-title" @click.stop x-show="showBackupsModal" x-transition style="max-width:560px;width:95%" x-ref="backupsDialog">
       <div class="modal-title">
-        Backups
-        <button class="modal-close" @click="showBackupsModal = false">&times;</button>
+        <span id="backups-title">Backups</span>
+        <button type="button" class="modal-close" @click="showBackupsModal = false; _closeModal()" aria-label="Close dialog">&times;</button>
       </div>
       <div style="margin-top:12px">
         <div x-show="loadingBackups" style="color:var(--text-muted);font-size:0.85rem;padding:8px 0">Loading backups...</div>
@@ -2076,24 +2418,25 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
         </div>
       </div>
       <div class="modal-actions" style="margin-top:16px">
-        <button type="button" class="btn-ghost" @click="showBackupsModal = false">Close</button>
+        <button type="button" class="btn-ghost" @click="showBackupsModal = false; _closeModal()">Close</button>
       </div>
     </div>
   </div>
 
   <!-- Calendar Modal -->
-  <div class="modal-backdrop" x-show="showCalendarModal" x-transition.opacity @click.self="showCalendarModal = false" style="display:none">
-    <div class="modal" @click.stop x-show="showCalendarModal" x-transition style="max-width:560px;width:95%">
+  <div class="modal-backdrop" x-show="showCalendarModal" x-transition.opacity @click.self="showCalendarModal = false; _closeModal()" style="display:none">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="calendar-title" @click.stop x-show="showCalendarModal" x-transition style="max-width:560px;width:95%" x-ref="calendarDialog">
       <div class="modal-title">
-        Calendar
-        <button class="modal-close" @click="showCalendarModal = false">&times;</button>
+        <span id="calendar-title">Calendar</span>
+        <button type="button" class="modal-close" @click="showCalendarModal = false; _closeModal()" aria-label="Close dialog">&times;</button>
       </div>
       <div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">
         <div style="font-size:0.85rem;color:var(--text-muted)">
           Subscribe in Apple Calendar, Outlook, or Thunderbird:
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <input type="text" class="form-input" readonly :value="calendarWebcalUrl()" @click="$el.select()" style="font-family:monospace;font-size:0.8rem">
+          <label for="cal-webcal-url" class="visually-hidden">Calendar subscription URL</label>
+          <input id="cal-webcal-url" type="text" class="form-input" readonly :value="calendarWebcalUrl()" @click="$el.select()" style="font-family:monospace;font-size:0.8rem">
           <button type="button" class="btn-ghost" @click="copyCalendarUrl()" style="flex-shrink:0">Copy</button>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
@@ -2104,7 +2447,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
         </p>
       </div>
       <div class="modal-actions" style="margin-top:16px">
-        <button type="button" class="btn-ghost" @click="showCalendarModal = false">Close</button>
+        <button type="button" class="btn-ghost" @click="showCalendarModal = false; _closeModal()">Close</button>
       </div>
     </div>
   </div>
@@ -2478,6 +2821,7 @@ function todoApp() {
       if (res.ok) {
         await this.fetchTasks();
         this.showModal = false;
+        this._closeModal();
         this.form = defaultForm();
         this.toast('Task added');
         this._sync('addTask');
@@ -2551,7 +2895,18 @@ function todoApp() {
       this.editingTaskId = task.id;
     },
 
+    // Focus the shown text again when the edit box closes without focus moving elsewhere.
+    _refocusAfterEdit(event, rowSelector, selector) {
+      if (event.relatedTarget) return;
+      const row = event.target.closest(rowSelector);
+      this.$nextTick(() => {
+        const visible = (el) => el && el.getClientRects().length ? el : null;
+        (visible(row?.querySelector(selector)) || visible(row?.querySelector('.task-title')))?.focus();
+      });
+    },
+
     async saveTitle(task, event) {
+      this._refocusAfterEdit(event, '.task-row', '.task-title');
       const newTitle = event.target.value.trim();
       this.editingTaskId = null;
       if (!newTitle || newTitle === task.title) return;
@@ -2571,6 +2926,7 @@ function todoApp() {
     },
 
     async saveNotes(task, event) {
+      this._refocusAfterEdit(event, '.task-row', '.task-notes');
       const newNotes = event.target.value.trim();
       this.editingNotesId = null;
       if (newNotes === task.notes) return;
@@ -2596,6 +2952,7 @@ function todoApp() {
     },
 
     async saveTags(task, event) {
+      this._refocusAfterEdit(event, '.task-row', '.tag-edit');
       if (this._skipTagsSave) {
         this._skipTagsSave = false;
         return;
@@ -2685,6 +3042,7 @@ function todoApp() {
     },
 
     async saveSubtitle(taskId, sub, event) {
+      this._refocusAfterEdit(event, '.subtask-row', '.subtask-title');
       const newTitle = event.target.value.trim();
       this.editingSubtaskId = null;
       if (!newTitle || newTitle === sub.title) return;
@@ -2730,6 +3088,7 @@ function todoApp() {
       if (res.ok) {
         await this.fetchProjects();
         this.showProjectModal = false;
+        this._closeModal();
         this.projectForm = { name: '', repo: '', description: '' };
         this.toast('Project created');
         this._sync('addProject');
@@ -3130,6 +3489,35 @@ function todoApp() {
     },
 
     // ── Modal ──────────────────────────────
+    _modalTrigger: null,
+
+    _openModal(refName) {
+      this._modalTrigger = document.activeElement;
+      this.$nextTick(() => {
+        const dlg = this.$refs[refName];
+        if (dlg) {
+          const focusable = dlg.querySelector('input, select, textarea') || dlg.querySelector('button');
+          if (focusable) focusable.focus();
+          else dlg.focus();
+        }
+      });
+    },
+
+    anyModalOpen() {
+      return this.showModal || this.showProjectModal || this.showBackupsModal || this.showCalendarModal;
+    },
+
+    _closeModal() {
+      // The page stops being inert on the next tick; focus after that.
+      const trigger = this._modalTrigger;
+      this._modalTrigger = null;
+      this.$nextTick(() => {
+        // An empty-state button that opened the dialog is gone once the first item exists.
+        const target = trigger && trigger.isConnected && trigger.getClientRects().length ? trigger : this.$refs.addButton;
+        target?.focus();
+      });
+    },
+
     openAddModal() {
       this.form = defaultForm();
       if (this.view === 'day') {
@@ -3142,13 +3530,13 @@ function todoApp() {
         }
       }
       this.showModal = true;
-      this.$nextTick(() => { this.$refs.titleInput && this.$refs.titleInput.focus(); });
+      this._openModal('addTaskDialog');
     },
 
     openProjectModal() {
       this.projectForm = { name: '', repo: '', description: '' };
       this.showProjectModal = true;
-      this.$nextTick(() => { this.$refs.projectNameInput && this.$refs.projectNameInput.focus(); });
+      this._openModal('addProjectDialog');
     },
 
     formatBytes(bytes) {
@@ -3159,6 +3547,7 @@ function todoApp() {
 
     async openBackupsModal() {
       this.showBackupsModal = true;
+      this._openModal('backupsDialog');
       this.loadingBackups = true;
       try {
         const res = await fetch('/api/backups');
@@ -3186,6 +3575,7 @@ function todoApp() {
           await this.fetchTasks();
           await this.fetchProjects();
           this.showBackupsModal = false;
+          this._closeModal();
           this.toast(`Restored ${b.name}`);
         } else {
           const err = await res.json().catch(() => ({}));
@@ -3319,6 +3709,8 @@ function todoApp() {
     handleKeydown(event) {
       const tag = document.activeElement?.tagName;
       const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      const onControl = !!document.activeElement?.closest('button, a[href], [role="button"], [role="checkbox"]');
+      const modalOpen = this.anyModalOpen();
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
@@ -3327,7 +3719,7 @@ function todoApp() {
       }
 
       if (event.key === 'Enter') {
-        if (inInput) return;
+        if (inInput || onControl || modalOpen) return;
         const rows = this._taskRows();
         if (!rows.length) return;
         event.preventDefault();
@@ -3340,7 +3732,7 @@ function todoApp() {
       }
 
       if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-        if (inInput) return;
+        if (inInput || modalOpen) return;
         event.preventDefault();
         this._moveSelection(event.key === 'ArrowUp' ? -1 : 1);
         return;
@@ -3348,10 +3740,10 @@ function todoApp() {
 
       // Escape always works
       if (event.key === 'Escape') {
-        if (this.showModal) { this.showModal = false; return; }
-        if (this.showProjectModal) { this.showProjectModal = false; return; }
-        if (this.showBackupsModal) { this.showBackupsModal = false; return; }
-        if (this.showCalendarModal) { this.showCalendarModal = false; return; }
+        if (this.showModal) { this.showModal = false; this._closeModal(); return; }
+        if (this.showProjectModal) { this.showProjectModal = false; this._closeModal(); return; }
+        if (this.showBackupsModal) { this.showBackupsModal = false; this._closeModal(); return; }
+        if (this.showCalendarModal) { this.showCalendarModal = false; this._closeModal(); return; }
         if (this.editingTaskId) { this.editingTaskId = null; return; }
         if (this.editingNotesId) { this.editingNotesId = null; return; }
         if (this.editingSubtaskId) { this.editingSubtaskId = null; return; }
@@ -3360,8 +3752,8 @@ function todoApp() {
         return;
       }
 
-      // Skip other shortcuts when typing in inputs
-      if (inInput) return;
+      // Skip other shortcuts when typing in inputs or while a dialog is open
+      if (inInput || modalOpen) return;
 
       if (event.key === 'n') {
         event.preventDefault();

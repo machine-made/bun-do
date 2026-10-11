@@ -62,7 +62,7 @@ describe.skipIf(!enabled)("web interface", () => {
     const { page, errors } = await openApp();
     await page.keyboard.press("n");
     await page.getByPlaceholder("Task title").fill("Water the plants");
-    await page.getByRole("button", { name: "Add task" }).click();
+    await page.getByRole("dialog").first().getByRole("button", { name: "Add task" }).click();
     await page.getByText("Water the plants").first().waitFor({ timeout: 3000 });
     const { body } = await api(server, "GET", "/api/tasks");
     expect(body.tasks.map((t: { title: string }) => t.title)).toContain("Water the plants");
@@ -238,7 +238,7 @@ describe.skipIf(!enabled)("web interface", () => {
         "Google Calendar cannot reach a local server, so Google users import the file."
       );
 
-      await modal.getByRole("button", { name: "Close" }).click();
+      await modal.getByRole("button", { name: "Close", exact: true }).click();
       await modal.waitFor({ state: "hidden", timeout: 3000 });
 
       expect(errors).toEqual([]);
@@ -278,6 +278,126 @@ describe.skipIf(!enabled)("web interface", () => {
     } finally {
       await page.close();
       emptyServer.stop();
+    }
+  });
+  // ── Accessibility ─────────────────────────────────────────────────────────
+
+  test("axe finds no serious or critical violations on any view in both themes", { timeout: 30_000 }, async () => {
+    const { body: t1 } = await api(server, "POST", "/api/tasks", { title: "Axe test task", date: today, priority: "P1" });
+    await api(server, "POST", `/api/tasks/${t1.id}/subtasks`, { title: "Sub item" });
+    const axe = await Bun.file("node_modules/axe-core/axe.min.js").text();
+
+    for (const theme of ["dark", "light"] as const) {
+      for (const [w, h] of [[1280, 800], [360, 740]] as const) {
+        const page = await browser.newPage({ viewport: { width: w, height: h } });
+        const errors: string[] = [];
+        page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+        page.on("pageerror", (e) => errors.push(String(e)));
+        await page.addInitScript((t) => localStorage.setItem("theme", t), theme);
+        await page.goto(server.base + "/");
+        await page.waitForFunction(() => (window as { Alpine?: unknown }).Alpine !== undefined);
+        await page.waitForTimeout(200);
+        expect(await page.evaluate(() => document.documentElement.classList.contains("light"))).toBe(theme === "light");
+
+        const scan = async (name: string) => {
+          await page.addScriptTag({ content: axe });
+          const res = await page.evaluate(async () => {
+            const axeFn = window.axe;
+            if (!axeFn) throw new Error("axe-core did not load");
+            return axeFn.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } });
+          });
+          for (const v of res.violations) {
+            if (v.impact === "serious" || v.impact === "critical") {
+              errors.push(`${theme}/${w}px/${name}: ${v.id} (${v.impact}) on ${v.nodes.length} node(s), e.g. ${v.nodes[0]?.target?.join(" ")}: ${v.nodes[0]?.failureSummary}`);
+            }
+          }
+        };
+
+        for (let i = 0; i < 7; i++) {
+          const tab = page.locator(".view-tab").nth(i);
+          const name = (await tab.innerText()).trim() || `tab-${i}`;
+          await tab.click();
+          await page.waitForTimeout(150);
+          await scan(name);
+          if (errors.length) break;
+        }
+        if (!errors.length) {
+          await page.locator(".view-tab", { hasText: "All" }).click();
+          await page.locator(".task-row", { hasText: "Axe test task" }).first().waitFor({ timeout: 3000 });
+          await page.locator(`[data-task-id="${t1.id}"] .subtask-toggle`).first().click();
+          await page.locator(".subtask-row", { hasText: "Sub item" }).first().waitFor({ timeout: 3000 });
+          await scan("open subtasks");
+        }
+        if (!errors.length) {
+          await page.keyboard.press("n");
+          await page.locator("#task-title").waitFor({ state: "visible", timeout: 3000 });
+          await page.waitForTimeout(250);
+          await scan("add dialog");
+        }
+        expect(errors).toEqual([]);
+        await page.close();
+      }
+    }
+  });
+
+  test("keyboard opens and closes the add dialog", async () => {
+    const { page, errors } = await openApp();
+    await page.getByRole("button", { name: "+ Add" }).focus();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(200);
+    const dialog = page.locator(".modal-backdrop >> .modal:visible").first();
+    await dialog.waitFor({ state: "visible", timeout: 3000 });
+    expect(await dialog.getAttribute("aria-modal")).toBe("true");
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe("task-title");
+    // Page shortcuts do nothing behind the open dialog.
+    await page.locator(".type-chip", { hasText: "Deadline" }).focus();
+    await page.keyboard.press("1");
+    expect(await page.locator(".view-tab.active").innerText()).toBe("Month");
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    expect(await page.locator(".modal-backdrop >> .modal:visible").first().isVisible()).toBe(false);
+    expect(await page.evaluate(() => document.activeElement?.textContent?.trim())).toBe("+ Add");
+    expect(errors).toEqual([]);
+    await page.close();
+  });
+
+  test("Enter after editing a title saves it and gives focus back to the title", async () => {
+    const { body: task } = await api(server, "POST", "/api/tasks", { title: "Rename me", date: today });
+    const { page, errors } = await openApp();
+    try {
+      const title = page.locator(`[data-task-id="${task.id}"] .task-title`).first();
+      await title.click();
+      const input = page.locator(`[data-task-id="${task.id}"] .task-title-edit`).first();
+      await input.fill("Renamed");
+      await input.press("Enter");
+      await page.waitForTimeout(300);
+      expect(await page.evaluate(() => document.activeElement?.classList.contains("task-title"))).toBe(true);
+      expect(await title.innerText()).toBe("Renamed");
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
+
+  test("the month grid puts day 1 under its weekday", async () => {
+    const { page, errors } = await openApp();
+    try {
+      await page.keyboard.press("2");
+      await page.locator(".cal-week").first().waitFor({ timeout: 3000 });
+      const label = await page.locator(".period-label").innerText();
+      const [monthName, year] = label.split(" ");
+      const month = new Date(`${monthName} 1, 2000`).getMonth();
+      const expected = (new Date(Number(year), month, 1).getDay() + 6) % 7;
+      const blanks = await page.evaluate(() => {
+        const week = document.querySelector(".cal-week");
+        const cells = [...(week?.querySelectorAll(".cal-cell") ?? [])];
+        return { before: cells.findIndex((c) => !c.classList.contains("empty")), total: cells.length };
+      });
+      expect(blanks.total).toBe(7);
+      expect(blanks.before).toBe(expected);
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
     }
   });
 });
