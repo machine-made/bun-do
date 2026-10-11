@@ -1,5 +1,33 @@
 # Changelog
 
+## [v1.5.0] — 2026-10-11
+
+### Added
+- **Tags.** Each task carries up to 10 tags (lower case, letters, digits, `-` and `_`). Type `#word` in a new task's title, use the Tags field, or edit tags in place. One tag filter works in every view, search matches tags, and `GET /api/tasks?tag=` filters through the API.
+- **More repeat rules:** daily, weekdays (Monday to Friday), and every N days, weeks, months or years (N up to 99). Monthly and yearly rules keep their day and land on the last day of short months.
+- **Daily backups.** Before the first change of each day, `tasks.json` and `projects.json` are copied to `backups/`; the newest 30 of each are kept (`BUNDO_BACKUP_KEEP`). Restore one from the Backups dialog, with `bun-do restore <file>`, or through `POST /api/backups/restore`; the current state is saved first. `bun-do backups` lists them.
+- **Calendar feed** at `/calendar.ics`: open tasks as all-day events, repeat rules as RRULE, a 09:00 alarm for reminders. Apple Calendar, Outlook or Thunderbird on the same computer can subscribe to `webcal://localhost:<port>/calendar.ics`; Google Calendar cannot reach a local server, so download the file and import it there.
+- **First-run guide** with a "Load example tasks" button; the examples land in the next two weeks.
+- `bun-do help` (`--help`, `-h`).
+- MCP: `add_task` and `update_task` take `tags`, `recurrence`, `amount` and `currency`; `list_tasks` takes `tag`.
+- Browser tests (playwright-core) and accessibility checks (axe-core) in CI.
+- `bun run screenshots` takes the README screenshots from the example tasks.
+
+### Changed
+- **The page works by keyboard, with a screen reader, and on a phone.** Every control is a button with a name that says which task it acts on; checkboxes report their state; dialogs are named, take focus on their first field, give it back when they close, and make the page behind them inactive. Text meets WCAG AA contrast in both themes and the focus ring is always visible; reduced-motion settings turn transitions off. At 600 px and narrower the header is two rows that scroll sideways, controls are at least 44 px, task buttons move under the title, dialogs fill the screen, and the page no longer scrolls sideways (it was 469 px wide at 360 px). The light theme's orange is darker to meet contrast.
+- Every view shows an empty state with an action, also when search or the tag filter hides everything.
+- The README is rewritten around the features, with new screenshots.
+- A new install starts with no tasks instead of the example tasks.
+- An unknown command now prints an error and the help and exits 1; before, it started the server. `bun-do status` exits 1 when the server is not running and prints the version, address, data directory and log path. A `start` that cannot reach the server prints the last log lines and exits 1.
+- An invalid repeat rule sent to the API is refused with HTTP 400 and a message naming the field; before, it was dropped silently.
+- A failed MCP tool call is reported as a tool result with `isError: true` instead of a JSON-RPC error.
+
+### Fixed
+- **An unreadable `tasks.json` lost every task.** The server replaced it with an empty list on the next save. It is now kept as `tasks.corrupt-<time>.json`, unchanged, and the newest backup is loaded instead.
+- A monthly rule on the 31st drifted to the 28th after February when it was created without its day. Rules now take their anchor from the task's date.
+
+---
+
 ## [v1.4.2] — 2026-10-11
 
 v1.4.1 was tagged but never reached npm; this release carries its changes too.
