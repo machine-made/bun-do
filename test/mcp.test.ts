@@ -16,6 +16,7 @@ async function mcp(messages: object[]): Promise<any[]> {
     env: { ...process.env, BUNDO_PORT: String(server.port) },
     stdin: "pipe",
     stdout: "pipe",
+    stderr: "pipe",
   });
   const expected = messages.filter((m) => "id" in m).length;
   for (const m of messages) proc.stdin.write(JSON.stringify(m) + "\n");
@@ -31,7 +32,13 @@ async function mcp(messages: object[]): Promise<any[]> {
     text += decoder.decode(value);
   }
   proc.kill();
-  return text.split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  const replies = text.split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  if (replies.length < expected) {
+    // Say what came back, so a missing reply can be traced to a crash or a slow server.
+    const stderr = await new Response(proc.stderr).text();
+    throw new Error(`mcp.ts sent ${replies.length} of ${expected} replies; stdout: ${text.slice(0, 500)}; stderr: ${stderr.slice(0, 2000)}`);
+  }
+  return replies;
 }
 
 describe("mcp server", () => {
