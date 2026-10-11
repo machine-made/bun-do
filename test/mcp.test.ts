@@ -57,6 +57,58 @@ describe("mcp server", () => {
     expect(reply.error.code).toBe(-32601);
   });
 
+  test("add_task and update_task accept tags, and list_tasks can filter", async () => {
+    const replies = await mcp([
+      { jsonrpc: "2.0", id: 1, method: "tools/list" },
+      {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: {
+          name: "add_task",
+          arguments: {
+            title: "Tagged via MCP",
+            tags: ["Agent"],
+            amount: "12",
+            currency: "EUR",
+            recurrence: { type: "weekly", dow: 0 },
+          },
+        },
+      },
+      { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "list_tasks", arguments: { tag: "#AGENT" } } },
+    ]);
+    const byId = (id: number) => replies.find((r) => r.id === id);
+    const tools = byId(1).result.tools;
+    const addTool = tools.find((t: { name: string }) => t.name === "add_task");
+    const updateTool = tools.find((t: { name: string }) => t.name === "update_task");
+    const listTool = tools.find((t: { name: string }) => t.name === "list_tasks");
+    for (const field of ["tags", "recurrence", "amount", "currency"]) {
+      expect(addTool.inputSchema.properties[field]).toBeDefined();
+      expect(updateTool.inputSchema.properties[field]).toBeDefined();
+    }
+    expect(listTool.inputSchema.properties.tag).toBeDefined();
+
+    const added = JSON.parse(byId(2).result.content[0].text);
+    expect(added.tags).toEqual(["agent"]);
+    expect(added.amount).toBe("12");
+    expect(added.currency).toBe("EUR");
+    expect(added.recurrence).toEqual({ type: "weekly", dow: 0 });
+
+    const listed = JSON.parse(byId(3).result.content[0].text).tasks;
+    expect(listed.every((t: { tags: string[] }) => t.tags.includes("agent"))).toBe(true);
+    expect(listed.map((t: { id: string }) => t.id)).toContain(added.id);
+
+    const updated = await mcp([
+      {
+        jsonrpc: "2.0",
+        id: 6,
+        method: "tools/call",
+        params: { name: "update_task", arguments: { id: added.id, tags: "home, work" } },
+      },
+    ]);
+    expect(JSON.parse(updated[0].result.content[0].text).tags).toEqual(["home", "work"]);
+  });
+
   test("a failed tool call is a result with isError, not a JSON-RPC error", async () => {
     const [reply] = await mcp([
       { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "update_task", arguments: { id: "no-such-id", done: true } } },

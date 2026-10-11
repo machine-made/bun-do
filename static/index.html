@@ -473,6 +473,102 @@ body {
 .priority-P3 { background: rgba(107,114,128,0.15); color: #6b7280; }
 .priority-chip.selected { outline: 2px solid currentColor; outline-offset: 1px; }
 
+/* ── Tags ───────────────────────────────────── */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent-hover);
+  background: var(--accent-dim);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.task-tags {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+.task-tags.has-tags,
+.task-tags.is-editing,
+.task-row:hover .task-tags { display: flex; }
+.tag-edit {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0 4px;
+  opacity: 0;
+}
+.task-row:hover .tag-edit { opacity: 1; }
+.tag-edit:hover { color: var(--accent-hover); }
+.task-tags-edit {
+  font-family: var(--font);
+  font-size: 0.75rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  outline: none;
+  width: 100%;
+}
+.tag-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.tag-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 3px 8px 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.tag-filter.active {
+  color: var(--accent-hover);
+  background: var(--accent-dim);
+  border-color: transparent;
+}
+.tag-count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: var(--bg);
+  border-radius: 999px;
+  min-width: 16px;
+  text-align: center;
+  padding: 0 4px;
+}
+.tag-filter.active .tag-count { color: var(--accent-hover); background: transparent; }
+.tag-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 2px 6px;
+}
+.tag-clear:hover { color: var(--danger); }
+
 /* ── Type Selector ─────────────────────────── */
 .type-selector {
   display: flex;
@@ -1069,7 +1165,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
       <button class="view-tab" :class="{ active: view === 'projects' }" @click="switchView('projects')">Projects</button>
     </div>
     <div class="nav-right">
-      <input class="search-input" type="text" placeholder="Search..." x-model="searchQuery" x-ref="searchInput" @keydown.escape="searchQuery = ''; $el.blur()">
+      <input class="search-input" type="text" placeholder="Search titles, notes, tags..." x-model="searchQuery" x-ref="searchInput" @keydown.escape="searchQuery = ''; $el.blur()">
       <template x-if="!isListView()">
         <button class="btn-ghost" @click="goToday()">Today</button>
       </template>
@@ -1099,6 +1195,15 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
 
   <!-- Main Content -->
   <main class="content">
+    <div class="tag-bar" x-show="tagCounts().length || tagFilter">
+      <template x-for="item in tagCounts()" :key="item.tag">
+        <button type="button" class="tag-filter" :class="{ active: tagFilter === item.tag }" :data-tag="item.tag" @click="setTagFilter(item.tag)">
+          <span x-text="'#' + item.tag"></span>
+          <span class="tag-count" x-text="item.count"></span>
+        </button>
+      </template>
+      <button type="button" class="tag-clear" x-show="tagFilter" @click="clearTagFilter()" aria-label="Clear tag filter" title="Clear tag filter">&times;</button>
+    </div>
 
     <!-- All View -->
     <template x-if="view === 'all'">
@@ -1121,6 +1226,13 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                   <div class="task-info">
                     <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
                     <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
+                    <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
+                      <template x-for="tag in (task.tags || [])" :key="tag">
+                        <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
+                      </template>
+                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                      <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
+                    </div>
                     <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
                     <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
@@ -1183,6 +1295,13 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                 <div class="task-info">
                   <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
                   <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
+                  <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
+                    <template x-for="tag in (task.tags || [])" :key="tag">
+                      <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
+                    </template>
+                    <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                    <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
+                  </div>
                   <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
                   <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                   <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
@@ -1246,6 +1365,13 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                   <div class="task-info">
                     <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
                     <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
+                    <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
+                      <template x-for="tag in (task.tags || [])" :key="tag">
+                        <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
+                      </template>
+                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                      <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
+                    </div>
                     <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
                     <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-meta">
@@ -1291,6 +1417,13 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                         <div class="task-info">
                           <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
                         <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
+                        <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
+                          <template x-for="tag in (task.tags || [])" :key="tag">
+                            <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
+                          </template>
+                          <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                          <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
+                        </div>
                           <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
                         <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                           <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
@@ -1389,6 +1522,13 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                   <div class="task-info">
                     <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
                     <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
+                    <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
+                      <template x-for="tag in (task.tags || [])" :key="tag">
+                        <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
+                      </template>
+                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                      <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
+                    </div>
                     <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
                     <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                     <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
@@ -1450,6 +1590,13 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
               <div class="task-info">
                 <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
                 <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
+                <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
+                  <template x-for="tag in (task.tags || [])" :key="tag">
+                    <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
+                  </template>
+                  <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                  <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
+                </div>
                 <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
                 <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                 <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
@@ -1553,6 +1700,13 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
               <div class="task-info">
                 <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
                 <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
+                <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
+                  <template x-for="tag in (task.tags || [])" :key="tag">
+                    <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
+                  </template>
+                  <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                  <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
+                </div>
                 <span class="task-notes" x-show="task.notes && editingNotesId !== task.id" x-text="task.notes" @click="startEditNotes(task)" style="cursor:text"></span>
                 <input x-show="editingNotesId === task.id" class="task-notes-edit" type="text" :value="task.notes || ''" placeholder="Add notes..." @blur="saveNotes(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingNotesId = null" x-effect="if (editingNotesId === task.id) $nextTick(() => $el.focus())">
                 <div class="task-meta" x-show="task.subtasks && task.subtasks.length > 0">
@@ -1616,6 +1770,13 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
                   <div class="task-info">
                     <span class="task-title" :class="{ 'line-through': task.done }" x-text="task.title" x-show="editingTaskId !== task.id" @click="startEditTitle(task)" style="cursor:text"></span>
                     <input x-show="editingTaskId === task.id" class="task-title-edit" type="text" :value="task.title" @blur="saveTitle(task, $event)" @keydown.enter="$event.target.blur()" @keydown.escape="editingTaskId = null" x-effect="if (editingTaskId === task.id) $nextTick(() => $el.focus())">
+                    <div class="task-tags" :class="{ 'has-tags': (task.tags || []).length, 'is-editing': editingTagsId === task.id }">
+                      <template x-for="tag in (task.tags || [])" :key="tag">
+                        <span class="tag-chip" x-show="editingTagsId !== task.id" x-text="'#' + tag"></span>
+                      </template>
+                      <button type="button" class="tag-edit" x-show="editingTagsId !== task.id" @click.stop="startEditTags(task)" aria-label="Edit tags" title="Edit tags">+</button>
+                      <input x-show="editingTagsId === task.id" class="task-tags-edit" type="text" :value="(task.tags || []).join(', ')" placeholder="tag1, tag2" @click.stop @blur="saveTags(task, $event)" @keydown.enter.prevent="$event.target.blur()" @keydown.escape.stop="cancelEditTags()" x-effect="if (editingTagsId === task.id) $nextTick(() => $el.focus())">
+                    </div>
                     <div class="task-meta">
                       <span x-text="task.date"></span>
                       <span class="recurrence-icon" :class="task.recurrence ? task.recurrence.type : ''" :title="task.recurrence ? recurrenceLabel(task) : 'Click to make recurring'" @click="cycleRecurrence(task)" style="cursor:pointer">&#x21bb;</span>
@@ -1647,6 +1808,10 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
         <div class="form-group">
           <label class="form-label">Title</label>
           <input class="form-input" type="text" x-model="form.title" placeholder="Task title" x-ref="titleInput" autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="task-tags">Tags</label>
+          <input id="task-tags" class="form-input" type="text" x-model="form.tags" placeholder="travel, home">
         </div>
         <div class="form-group">
           <label class="form-label">Date</label>
@@ -1770,7 +1935,29 @@ function todoApp() {
   const CURRENCY_SYMBOLS = { CHF: 'CHF ', USD: '$', EUR: '€', BRL: 'R$' };
   function currencySymbol(code) { return CURRENCY_SYMBOLS[code] || code + ' '; }
   function defaultForm() {
-    return { title: '', date: todayStr, priority: 'P2', notes: '', type: 'task', recurrenceType: 'none', recurrence: null, amount: '', currency: 'CHF' };
+    return { title: '', date: todayStr, priority: 'P2', notes: '', tags: '', type: 'task', recurrenceType: 'none', recurrence: null, amount: '', currency: 'CHF' };
+  }
+
+  function normalizeTag(raw) {
+    let s = String(raw ?? '').normalize('NFC').trim().replace(/^#+/, '').toLowerCase();
+    s = s.replace(/\s+/gu, '-').replace(/[^\p{L}\p{Nd}_-]+/gu, '');
+    const chars = [...s];
+    return chars.length > 32 ? chars.slice(0, 32).join('') : s;
+  }
+
+  function splitTitleTags(title) {
+    const found = [];
+    const re = /(^|\s)#([^\s#]+)/g;
+    let out = '';
+    let last = 0;
+    for (const m of title.matchAll(re)) {
+      if (!normalizeTag(m[2])) continue;
+      out += title.slice(last, m.index) + m[1];
+      found.push(m[2]);
+      last = m.index + m[0].length;
+    }
+    out += title.slice(last);
+    return { title: out.replace(/[ \t]{2,}/g, ' ').trim(), tags: found };
   }
 
   function taskSort(a, b) {
@@ -1800,6 +1987,9 @@ function todoApp() {
     editingTaskId: null,
     editingNotesId: null,
     editingSubtaskId: null,
+    editingTagsId: null,
+    _skipTagsSave: false,
+    tagFilter: normalizeTag(localStorage.getItem('tagFilter') || ''),
     selectedTaskId: null,
     expandedSubtasks: {},
     _syncChannel: null,
@@ -2058,9 +2248,11 @@ function todoApp() {
     },
 
     async addTask() {
-      if (!this.form.title.trim()) return;
+      const split = splitTitleTags(this.form.title || '');
+      const tags = [this.form.tags, ...split.tags].filter(Boolean).join(',');
+      if (!split.title && !tags) return;
       const payload = {
-        title: this.form.title,
+        title: split.title,
         date: this.form.date,
         priority: this.form.priority,
         notes: this.form.notes,
@@ -2068,6 +2260,7 @@ function todoApp() {
         recurrence: this.form.recurrence,
         amount: this.form.amount,
         currency: this.form.currency,
+        tags,
       };
       const res = await this.apiFetch('/api/tasks', {
         method: 'POST',
@@ -2174,6 +2367,58 @@ function todoApp() {
         task.notes = newNotes;
         this._sync('saveNotes');
       }
+    },
+
+    startEditTags(task) {
+      this._skipTagsSave = false;
+      this.editingTagsId = task.id;
+    },
+
+    cancelEditTags() {
+      this._skipTagsSave = true;
+      this.editingTagsId = null;
+    },
+
+    async saveTags(task, event) {
+      if (this._skipTagsSave) {
+        this._skipTagsSave = false;
+        return;
+      }
+      const raw = event.target.value;
+      this.editingTagsId = null;
+      if (raw.trim() === (task.tags || []).join(', ')) return;
+      const res = await this.apiFetch('/api/tasks/' + task.id, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ tags: raw }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        task.tags = updated.tags || [];
+        this._sync('saveTags');
+      }
+    },
+
+    setTagFilter(tag) {
+      this.tagFilter = tag;
+      if (tag) localStorage.setItem('tagFilter', tag);
+      else localStorage.removeItem('tagFilter');
+    },
+
+    clearTagFilter() {
+      this.setTagFilter('');
+    },
+
+    tagCounts() {
+      const counts = {};
+      for (const t of this.tasks) {
+        for (const tag of t.tags || []) {
+          if (counts[tag] === undefined) counts[tag] = 0;
+          if (!t.done) counts[tag]++;
+        }
+      }
+      if (this.tagFilter && counts[this.tagFilter] === undefined) counts[this.tagFilter] = 0;
+      return Object.keys(counts).sort().map(tag => ({ tag, count: counts[tag] }));
     },
 
     // ── Subtask API ─────────────────────────
@@ -2448,12 +2693,20 @@ function todoApp() {
     matchesSearch(t) {
       if (!this.searchQuery) return true;
       const q = this.searchQuery.toLowerCase();
-      return t.title.toLowerCase().includes(q) || (t.notes && t.notes.toLowerCase().includes(q));
+      const tagQ = q.replace(/^#+/, '');
+      return t.title.toLowerCase().includes(q)
+        || (t.notes && t.notes.toLowerCase().includes(q))
+        || (tagQ && (t.tags || []).some(tag => tag.includes(tagQ)));
+    },
+
+    matchesTag(t) {
+      if (!this.tagFilter) return true;
+      return (t.tags || []).includes(this.tagFilter);
     },
 
     isVisible(t) {
       if (!this.showDone && t.done && !this.recentlyDone[t.id]) return false;
-      return this.matchesSearch(t);
+      return this.matchesSearch(t) && this.matchesTag(t);
     },
 
     backlogTasks() {
@@ -2806,6 +3059,7 @@ function todoApp() {
         if (this.editingTaskId) { this.editingTaskId = null; return; }
         if (this.editingNotesId) { this.editingNotesId = null; return; }
         if (this.editingSubtaskId) { this.editingSubtaskId = null; return; }
+        if (this.editingTagsId) { this.cancelEditTags(); return; }
         if (this.searchQuery) { this.searchQuery = ''; this.$refs.searchInput?.blur(); return; }
         return;
       }

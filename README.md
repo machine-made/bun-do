@@ -29,7 +29,7 @@ Most todo apps want you to sign up, sync to the cloud, or install an Electron ap
 - Types: task, deadline, reminder, payment
 - Recurring: weekly, monthly, yearly with auto-creation on completion
 - Overdue tasks auto-carry to today (payments keep their original due date)
-- Inline click-to-edit for titles, notes, and subtask names
+- Inline click-to-edit for titles, notes, tags and subtask names
 - Undo delete with 10-second recovery window
 
 **Payments** — Dedicated bill/payment tracker with optional amounts, grouped by month with per-month subtotals
@@ -40,7 +40,8 @@ Most todo apps want you to sign up, sync to the cloud, or install an Electron ap
 
 **UX**
 - Keyboard shortcuts: `n` new task, `1`–`5` switch views, `/` search, `Esc` dismiss
-- Live search across task titles and notes
+- Live search across task titles, notes and tags
+- Tags on every task, shown as `#tag` chips, with a filter (each tag and its count of open tasks) that applies to every view
 - Overdue count badge
 - Adjustable font size (A-/A+)
 - Error toasts on failed API calls
@@ -207,7 +208,7 @@ On first run, `tasks.example.json` seeds `tasks.json` if it doesn't exist.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/tasks` | List tasks (auto-carries overdue to today) |
+| `GET` | `/api/tasks` | List tasks (auto-carries overdue to today). `?tag=` returns only tasks carrying that tag |
 | `POST` | `/api/tasks` | Create task |
 | `PUT` | `/api/tasks/:id` | Update task |
 | `DELETE` | `/api/tasks/:id` | Delete task |
@@ -223,6 +224,10 @@ On first run, `tasks.example.json` seeds `tasks.json` if it doesn't exist.
 | `DELETE` | `/api/projects/:id` | Delete project |
 | `POST` | `/api/projects/:id/entries` | Add log entry |
 | `DELETE` | `/api/projects/:id/entries/:eid` | Delete log entry |
+
+**Tags.** Each task has `tags`, a list of strings (empty when an older file has no tags). Create and update accept an array or one comma-separated string and replace the list. Values are trimmed, a leading `#` is removed, lower-cased, whitespace runs become `-`, and only letters, digits, `-` and `_` are kept (at most 32 characters, 10 per task, no duplicates). `GET /api/tasks?tag=work` filters; the value is normalised the same way, so `#WORK` matches `work`.
+
+MCP `add_task` and `update_task` accept `tags`, `recurrence`, `amount` and `currency`. `list_tasks` accepts an optional `tag`.
 
 ## Stack
 

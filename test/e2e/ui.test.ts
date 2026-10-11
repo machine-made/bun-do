@@ -91,4 +91,71 @@ describe.skipIf(!enabled)("web interface", () => {
     expect(errors).toEqual([]);
     await page.close();
   });
+
+  test("quick-add #tag shows a chip, and the tag filter hides untagged tasks until cleared", async () => {
+    await api(server, "POST", "/api/tasks", { title: "Untagged errand", date: today });
+    const { page, errors } = await openApp();
+    try {
+      await page.evaluate(() => localStorage.removeItem("tagFilter"));
+      await page.keyboard.press("n");
+      await page.getByPlaceholder("Task title").fill("Buy oats #Groceries");
+      await page.getByRole("button", { name: "Add task" }).click();
+      const row = page.locator(".task-row", { hasText: "Buy oats" }).first();
+      await row.waitFor({ timeout: 3000 });
+      await row.locator(".tag-chip", { hasText: "#groceries" }).waitFor();
+      expect(await row.locator(".task-title").innerText()).toBe("Buy oats");
+
+      const untagged = page.locator(".task-row", { hasText: "Untagged errand" });
+      await untagged.first().waitFor({ state: "visible", timeout: 3000 });
+
+      await page.locator(".search-input").fill("groceries");
+      await page.waitForFunction(() => ![...document.querySelectorAll(".task-row")].some((el) => el.textContent?.includes("Untagged errand")));
+      expect(await untagged.count()).toBe(0);
+      await row.waitFor({ state: "visible" });
+      await page.locator(".search-input").fill("");
+      await untagged.first().waitFor({ state: "visible", timeout: 3000 });
+
+      await page.locator(".tag-filter[data-tag='groceries']").click();
+      await page.waitForFunction(() => ![...document.querySelectorAll(".task-row")].some((el) => el.textContent?.includes("Untagged errand")));
+      expect(await untagged.count()).toBe(0);
+      await row.waitFor({ state: "visible" });
+      expect(await page.evaluate(() => localStorage.getItem("tagFilter"))).toBe("groceries");
+
+      await page.reload();
+      await page.waitForFunction(() => "Alpine" in window);
+      await page.locator(".task-row", { hasText: "Buy oats" }).first().waitFor({ timeout: 3000 });
+      expect(await page.locator(".task-row", { hasText: "Untagged errand" }).count()).toBe(0);
+
+      await page.getByRole("button", { name: "Clear tag filter" }).click();
+      await page.locator(".task-row", { hasText: "Untagged errand" }).first().waitFor({ timeout: 3000 });
+      expect(await page.evaluate(() => localStorage.getItem("tagFilter"))).toBeNull();
+      expect(errors).toEqual([]);
+    } finally {
+      await page.evaluate(() => localStorage.removeItem("tagFilter")).catch(() => {});
+      await page.close();
+    }
+  });
+
+  test("the tags field and in-place edit replace the list", async () => {
+    const { page, errors } = await openApp();
+    try {
+      await page.keyboard.press("n");
+      await page.getByPlaceholder("Task title").fill("Label me");
+      await page.locator("#task-tags").fill("Home, Work");
+      await page.getByRole("button", { name: "Add task" }).click();
+      const row = page.locator(".task-row", { hasText: "Label me" }).first();
+      await row.locator(".tag-chip", { hasText: "#home" }).waitFor({ timeout: 3000 });
+      await row.locator(".tag-chip", { hasText: "#work" }).waitFor();
+      await row.hover();
+      await row.getByRole("button", { name: "Edit tags" }).click();
+      const input = row.locator(".task-tags-edit");
+      await input.fill("errands");
+      await input.press("Enter");
+      await row.locator(".tag-chip", { hasText: "#errands" }).waitFor({ timeout: 3000 });
+      expect(await row.locator(".tag-chip", { hasText: "#home" }).count()).toBe(0);
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
 });

@@ -308,3 +308,91 @@ describe("dates follow the local time zone", () => {
     expect(list.body.tasks.find((t: { id: string }) => t.id === task.id).date).toBe(localDate(zone));
   });
 });
+
+describe("tags", () => {
+  test("a task file without tags loads as an empty list", async () => {
+    const old = await startServer({
+      tasks: [{
+        id: "old",
+        title: "Pre-1.5",
+        date: "2026-01-05",
+        priority: "P1",
+        notes: "",
+        done: false,
+        type: "task",
+        subtasks: [],
+        recurrence: null,
+        sort_order: 0,
+        amount: "",
+        currency: "CHF",
+      }],
+    });
+    try {
+      const list = await api(old, "GET", "/api/tasks");
+      expect(list.body.tasks.find((t: { id: string }) => t.id === "old").tags).toEqual([]);
+    } finally {
+      old.stop();
+    }
+  });
+
+  test("create normalises a comma string, unicode, length and duplicates", async () => {
+    const comma = await api(server, "POST", "/api/tasks", {
+      title: "Comma tags",
+      tags: " #Travel, Work ,travel,,",
+    });
+    expect(comma.body.tags).toEqual(["travel", "work"]);
+
+    const many = Array.from({ length: 12 }, (_, i) => `Tag Number ${i} ` + "x".repeat(40));
+    const capped = await api(server, "POST", "/api/tasks", { title: "Many tags", tags: many });
+    expect(capped.body.tags).toHaveLength(10);
+    expect(capped.body.tags.every((t: string) => t.length <= 32 && !/\s|[A-Z]/.test(t))).toBe(true);
+
+    const unicode = await api(server, "POST", "/api/tasks", {
+      title: "Unicode tags",
+      tags: [" Café!", "naïve", "café"],
+    });
+    expect(unicode.body.tags).toEqual(["café", "naïve"]);
+
+    const spaced = await api(server, "POST", "/api/tasks", { title: "Spaced", tags: ["# Home", "#  Deep  Work "] });
+    expect(spaced.body.tags).toEqual(["home", "deep-work"]);
+  });
+
+  test("update replaces the list and omitting tags keeps them", async () => {
+    const { body: task } = await api(server, "POST", "/api/tasks", { title: "Keep tags", tags: ["home"] });
+    const kept = await api(server, "PUT", `/api/tasks/${task.id}`, { notes: "x" });
+    expect(kept.body.tags).toEqual(["home"]);
+    const replaced = await api(server, "PUT", `/api/tasks/${task.id}`, { tags: ["Home"] });
+    expect(replaced.body.tags).toEqual(["home"]);
+    const cleared = await api(server, "PUT", `/api/tasks/${task.id}`, { tags: "" });
+    expect(cleared.body.tags).toEqual([]);
+  });
+
+  test("?tag= returns only tasks carrying the normalised tag", async () => {
+    const marked = await api(server, "POST", "/api/tasks", { title: "Marked work", tags: ["work"] });
+    const plain = await api(server, "POST", "/api/tasks", { title: "Plain no work tag" });
+    for (const q of ["work", "%23WORK"]) {
+      const got = await api(server, "GET", `/api/tasks?tag=${q}`);
+      expect(got.body.tasks.length).toBeGreaterThan(0);
+      expect(got.body.tasks.every((t: { tags: string[] }) => t.tags.includes("work"))).toBe(true);
+      expect(got.body.tasks.map((t: { id: string }) => t.id)).toContain(marked.body.id);
+      expect(got.body.tasks.map((t: { id: string }) => t.id)).not.toContain(plain.body.id);
+    }
+    const all = await api(server, "GET", "/api/tasks");
+    expect(all.body.tasks.map((t: { id: string }) => t.id)).toContain(plain.body.id);
+    expect(all.body.carried_over).toEqual(expect.any(Number));
+  });
+
+  test("the next occurrence keeps the tags", async () => {
+    const { body: task } = await api(server, "POST", "/api/tasks", {
+      title: "Gym tags",
+      tags: ["health"],
+      date: "2026-11-02",
+      recurrence: { type: "weekly", dow: 0 },
+    });
+    await api(server, "PUT", `/api/tasks/${task.id}`, { done: true });
+    const next = (await api(server, "GET", "/api/tasks")).body.tasks.find(
+      (t: { title: string; done: boolean }) => t.title === "Gym tags" && !t.done,
+    );
+    expect(next.tags).toEqual(["health"]);
+  });
+});

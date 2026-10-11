@@ -33,6 +33,7 @@ interface Task {
   sort_order: number;
   amount: string;
   currency: string;
+  tags: string[];
 }
 
 interface Entry {
@@ -94,6 +95,36 @@ function safeUrl(raw: unknown): string {
   const url = String(raw ?? "").trim();
   if (!url) return "";
   return /^https?:\/\//i.test(url) ? url : "";
+}
+
+const MAX_TAGS = 10;
+const MAX_TAG_LEN = 32;
+
+/** One tag: trim, drop a leading #, lower case, spaces to "-", keep letters, digits, "-" and "_". */
+function normalizeTag(raw: string): string {
+  let s = raw.normalize("NFC").trim().replace(/^#+/, "").trim().toLowerCase();
+  s = s.replace(/\s+/gu, "-").replace(/[^\p{L}\p{Nd}_-]+/gu, "");
+  const chars = [...s];
+  return chars.length > MAX_TAG_LEN ? chars.slice(0, MAX_TAG_LEN).join("") : s;
+}
+
+/** Array of strings, or one comma-separated string. Empties and duplicates dropped; first 10 win. */
+function normalizeTags(raw: unknown): string[] {
+  const parts = typeof raw === "string"
+    ? raw.split(",")
+    : Array.isArray(raw)
+      ? raw.filter((item): item is string => typeof item === "string")
+      : [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const part of parts) {
+    const tag = normalizeTag(part);
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    out.push(tag);
+    if (out.length === MAX_TAGS) break;
+  }
+  return out;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -226,6 +257,7 @@ function parseTasks(raw: unknown): Task[] {
       sort_order: (item.sort_order as number) ?? 0,
       amount: String(item.amount ?? "").trim(),
       currency: validCurrency(item.currency),
+      tags: normalizeTags(item.tags),
     }));
 }
 
@@ -294,6 +326,7 @@ function createNextRecurring(task: Task): Task {
     sort_order: 0,
     amount: task.amount,
     currency: task.currency,
+    tags: [...task.tags],
   };
 }
 
@@ -343,9 +376,14 @@ function notFound(detail: string): Response {
 
 // -- Tasks --
 
-function handleGetTasks(): Response {
+function handleGetTasks(url: URL): Response {
   const moved = carryOver(today());
-  return json({ tasks: sortTasks(tasks), carried_over: moved });
+  let list = tasks;
+  if (url.searchParams.has("tag")) {
+    const tag = normalizeTag(url.searchParams.get("tag") ?? "");
+    list = tag ? tasks.filter((t) => t.tags.includes(tag)) : [];
+  }
+  return json({ tasks: sortTasks(list), carried_over: moved });
 }
 
 async function handleCreateTask(req: Request): Promise<Response> {
@@ -363,6 +401,7 @@ async function handleCreateTask(req: Request): Promise<Response> {
     sort_order: 0,
     amount: String(body.amount ?? "").trim(),
     currency: validCurrency(body.currency),
+    tags: normalizeTags(body.tags),
   };
   tasks.push(newTask);
   saveTasks();
@@ -402,6 +441,7 @@ async function handleUpdateTask(taskId: string, req: Request): Promise<Response>
   if (body.type !== undefined && TASK_TYPES.includes(body.type)) task.type = body.type;
   if (body.amount !== undefined) task.amount = String(body.amount).trim();
   if (body.currency !== undefined && CURRENCIES.includes(body.currency)) task.currency = body.currency;
+  if (body.tags !== undefined) task.tags = normalizeTags(body.tags);
   if (body.recurrence !== undefined) task.recurrence = sanitizeRecurrence(body.recurrence);
   if (body.done !== undefined) {
     const wasDone = task.done;
@@ -591,7 +631,7 @@ async function handleRequest(req: Request): Promise<Response> {
   // -- API routes --
   let match: RegExpMatchArray | null;
 
-  if (path === "/api/tasks" && method === "GET") return handleGetTasks();
+  if (path === "/api/tasks" && method === "GET") return handleGetTasks(url);
   if (path === "/api/tasks" && method === "POST") return handleCreateTask(req);
   if (path === "/api/tasks/reorder" && method === "POST") return handleReorderTasks(req);
   if (path === "/api/tasks/clear-done" && method === "POST") return handleClearDone();

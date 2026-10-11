@@ -27,8 +27,18 @@ const TOOLS = [
   {
     name: "list_tasks",
     description:
-      "List all tasks from bun-do. Returns tasks array with id, title, date, priority, type, done, notes, subtasks.",
-    inputSchema: { type: "object", properties: {}, required: [] },
+      "List tasks from bun-do. Returns tasks with id, title, date, priority, type, done, notes, subtasks, tags. Optional tag returns only tasks carrying that tag.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tag: {
+          type: "string",
+          description:
+            "Only tasks carrying this tag. Normalised the same way as task tags: trimmed, leading # removed, lower case.",
+        },
+      },
+      required: [],
+    },
   },
   {
     name: "add_task",
@@ -49,6 +59,34 @@ const TOOLS = [
           description: "Task type (default: task)",
         },
         notes: { type: "string", description: "Optional notes" },
+        tags: {
+          description:
+            "Tags as an array of strings, or one comma-separated string. Each tag is trimmed, a leading # is removed, lower-cased, whitespace runs become -, and only letters, digits, - and _ are kept. At most 32 characters, at most 10 per task, duplicates dropped (first wins).",
+          anyOf: [{ type: "array", items: { type: "string" } }, { type: "string" }],
+        },
+        recurrence: {
+          description:
+            "Recurrence rule, or null for none. weekly uses dow (0 = Monday .. 6 = Sunday); monthly uses day (1-31); yearly uses month (1-12) and day.",
+          anyOf: [
+            { type: "null" },
+            {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["weekly", "monthly", "yearly"] },
+                dow: { type: "number", description: "Weekday for weekly, 0 = Monday .. 6 = Sunday" },
+                day: { type: "number", description: "Day of month for monthly or yearly, 1-31" },
+                month: { type: "number", description: "Month for yearly, 1-12" },
+              },
+              required: ["type"],
+            },
+          ],
+        },
+        amount: { type: "string", description: "Payment amount, stored as text" },
+        currency: {
+          type: "string",
+          enum: ["CHF", "USD", "EUR", "BRL"],
+          description: "Payment currency (default CHF)",
+        },
       },
       required: ["title"],
     },
@@ -66,6 +104,30 @@ const TOOLS = [
         type: { type: "string", enum: ["task", "deadline", "reminder", "payment"] },
         done: { type: "boolean", description: "Mark task done or not done" },
         notes: { type: "string" },
+        tags: {
+          description:
+            "Replaces the tag list. An array of strings, or one comma-separated string. Same normalisation as add_task.",
+          anyOf: [{ type: "array", items: { type: "string" } }, { type: "string" }],
+        },
+        recurrence: {
+          description:
+            "Replaces the recurrence rule. Null clears it. weekly uses dow (0 = Monday .. 6 = Sunday); monthly uses day; yearly uses month and day.",
+          anyOf: [
+            { type: "null" },
+            {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["weekly", "monthly", "yearly"] },
+                dow: { type: "number" },
+                day: { type: "number" },
+                month: { type: "number" },
+              },
+              required: ["type"],
+            },
+          ],
+        },
+        amount: { type: "string", description: "Payment amount, stored as text" },
+        currency: { type: "string", enum: ["CHF", "USD", "EUR", "BRL"] },
       },
       required: ["id"],
     },
@@ -105,8 +167,10 @@ async function handleCall(
   args: Record<string, unknown>
 ): Promise<string> {
   switch (name) {
-    case "list_tasks":
-      return JSON.stringify(await api("GET", "/api/tasks"), null, 2);
+    case "list_tasks": {
+      const tag = typeof args.tag === "string" && args.tag !== "" ? `?tag=${encodeURIComponent(args.tag)}` : "";
+      return JSON.stringify(await api("GET", `/api/tasks${tag}`), null, 2);
+    }
     case "add_task":
       return JSON.stringify(await api("POST", "/api/tasks", args), null, 2);
     case "update_task": {

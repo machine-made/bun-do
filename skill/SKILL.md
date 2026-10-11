@@ -42,7 +42,7 @@ bun-do is a local-first todo app. REST API at `http://localhost:8000`. All data 
 
 | Action | Method | Endpoint |
 |--------|--------|----------|
-| List tasks | GET | `/api/tasks` |
+| List tasks | GET | `/api/tasks` (optional `?tag=`) |
 | Add task | POST | `/api/tasks` |
 | Edit task | PUT | `/api/tasks/{id}` |
 | Delete task | DELETE | `/api/tasks/{id}` |
@@ -70,13 +70,17 @@ bun-do is a local-first todo app. REST API at `http://localhost:8000`. All data 
   "done": false,
   "amount": "string (for payments)",
   "currency": "CHF | USD | EUR | BRL (default: CHF)",
-  "recurrence": null | {"type": "weekly", "dow": 0-6} | {"type": "monthly", "day": 1-31} | {"type": "yearly", "month": 1-12, "day": 1-31}
+  "recurrence": null | {"type": "weekly", "dow": 0-6} | {"type": "monthly", "day": 1-31} | {"type": "yearly", "month": 1-12, "day": 1-31},
+  "tags": ["travel", "home"]
 }
 ```
 
 **Priorities**: P0 = critical/drop everything, P1 = high/do today, P2 = normal, P3 = backlog (not on calendar).
 **Types**: `task` = actionable, `deadline` = hard date, `reminder` = FYI, `payment` = bill/invoice tracker.
 **Recurring**: When a recurring task is marked done, the next occurrence is auto-created.
+**Tags**: a list of strings, or one comma-separated string. Normalised on create and update: trimmed, a leading `#` removed, lower case, whitespace runs become `-`, only letters, digits, `-` and `_`, at most 32 characters, at most 10 per task, duplicates dropped. Update replaces the list. Old files without `tags` load as `[]`. The next occurrence of a recurring task keeps its tags. `GET /api/tasks?tag=work` returns only tasks carrying that tag (`#WORK` matches `work`). Omit `tag` for the full list.
+
+**MCP** (`bun-do-mcp`): `add_task` and `update_task` accept `tags`, `recurrence`, `amount` and `currency` (same rules as the API). `list_tasks` accepts an optional `tag`. A failed tool call returns a result with `isError: true`, not a JSON-RPC error.
 
 ## Curl patterns
 

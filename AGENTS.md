@@ -35,7 +35,7 @@ Data directory: `BUNDO_DATA_DIR` env var (default `./data` in source, `~/.bun-do
 Base URL: `http://localhost:8000`
 
 ```
-GET    /api/tasks                        list all tasks
+GET    /api/tasks                        list all tasks (optional ?tag=)
 POST   /api/tasks                        create task
 PUT    /api/tasks/:id                    update task (partial)
 DELETE /api/tasks/:id                    delete task
@@ -60,12 +60,14 @@ DELETE /api/projects/:id/entries/:eid    delete entry
   "type": "task | deadline | reminder | payment",
   "done": false,
   "notes": "",
-  "recurrence": null
+  "recurrence": null,
+  "tags": ["travel", "home"]
 }
 ```
 
 Priority: P0 = critical, P1 = high, P2 = normal, P3 = backlog.
 Backlog: `type=task` + `priority=P3` (shows in backlog panel, not calendar).
+Tags: a list, or one comma-separated string on create and update. Normalised on write: trimmed, a leading `#` removed, lower case, whitespace runs become `-`, only letters, digits, `-` and `_`, at most 32 characters, at most 10 per task, duplicates dropped. Missing tags on old files load as `[]`. `GET /api/tasks?tag=work` (also `#work`) returns only tasks carrying that tag; omit `tag` for the full list. The next occurrence of a recurring task keeps its tags.
 
 ## Common agent operations
 
@@ -117,4 +119,4 @@ curl -s -X POST http://localhost:8000/api/projects/PROJECT_ID/entries \
 - Dates are `YYYY-MM-DD`. Omit for today.
 - Only send fields you want to change on PUT requests.
 - Full curl examples: `skill/SKILL.md`
-- MCP tools: run `bun-do-mcp` and use `list_tasks`, `add_task`, `update_task`, `delete_task`, `list_projects`, `add_project_entry`.
+- MCP tools: `bun-do-mcp` — `list_tasks` (optional `tag`), `add_task` and `update_task` (`tags`, `recurrence`, `amount`, `currency`), `delete_task`, `list_projects`, `add_project_entry`. A failed tool call returns `isError: true` on the result, not a JSON-RPC error.
