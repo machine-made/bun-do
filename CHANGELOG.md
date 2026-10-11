@@ -2,6 +2,8 @@
 
 ## [v1.5.0] — 2026-10-11
 
+v1.4.1 and v1.4.2 were tagged but never reached npm; this release carries their changes too.
+
 ### Added
 - **Tags.** Each task carries up to 10 tags (lower case, letters, digits, `-` and `_`). Type `#word` in a new task's title, use the Tags field, or edit tags in place. One tag filter works in every view, search matches tags, and `GET /api/tasks?tag=` filters through the API.
 - **More repeat rules:** daily, weekdays (Monday to Friday), and every N days, weeks, months or years (N up to 99). Monthly and yearly rules keep their day and land on the last day of short months.
