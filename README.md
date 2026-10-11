@@ -100,6 +100,13 @@ Run the tests (API, CLI and MCP server, each against a real server with a tempor
 bun test
 ```
 
+Browser tests drive the web interface in headless Chromium:
+
+```bash
+bunx playwright-core install chromium   # once
+BUNDO_E2E=1 bun test test/e2e
+```
+
 ### Background service (source clone)
 
 ```bash

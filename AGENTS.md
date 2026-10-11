@@ -21,6 +21,7 @@ All data is stored in plain JSON files. Nothing leaves your machine.
 bun run dev          # hot-reload server on :8000
 bun run start        # plain server on :8000
 bun test             # API, CLI and MCP tests (run before every commit)
+BUNDO_E2E=1 bun test test/e2e   # browser tests (bunx playwright-core install chromium once)
 bun cli.ts start     # background service (writes PID + log)
 bun cli.ts stop
 bun cli.ts restart
