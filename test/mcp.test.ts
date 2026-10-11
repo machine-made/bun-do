@@ -56,4 +56,13 @@ describe("mcp server", () => {
     const [reply] = await mcp([{ jsonrpc: "2.0", id: 9, method: "nope" }]);
     expect(reply.error.code).toBe(-32601);
   });
+
+  test("a failed tool call is a result with isError, not a JSON-RPC error", async () => {
+    const [reply] = await mcp([
+      { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "update_task", arguments: { id: "no-such-id", done: true } } },
+    ]);
+    expect(reply.result.isError).toBe(true);
+    expect(reply.error).toBeUndefined();
+    expect(reply.result.content[0].type).toBe("text");
+  });
 });

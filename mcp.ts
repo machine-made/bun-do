@@ -174,13 +174,11 @@ for await (const line of rl) {
       const text = await handleCall(name, args);
       send({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text }] } });
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       send({
         jsonrpc: "2.0",
         id,
-        error: {
-          code: -32603,
-          message: err instanceof Error ? err.message : String(err),
-        },
+        result: { content: [{ type: "text", text: message }], isError: true },
       });
     }
   } else if (id !== undefined) {
