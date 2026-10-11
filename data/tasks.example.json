@@ -11,112 +11,124 @@
       "subtasks": [
         { "id": "ex-001-1", "title": "Install Bun", "done": true },
         { "id": "ex-001-2", "title": "Clone repo", "done": true },
-        { "id": "ex-001-3", "title": "Run bun run dev", "done": true }
+        { "id": "ex-001-3", "title": "Run bun test", "done": true }
       ],
-      "recurrence": null
+      "recurrence": null,
+      "tags": ["dev", "setup"]
     },
     {
       "id": "ex-002",
       "title": "Write unit tests for API",
-      "date": "2026-02-10",
+      "date": "2026-02-05",
       "priority": "P1",
       "type": "task",
       "done": false,
       "notes": "Cover tasks CRUD and project entries.",
       "subtasks": [],
-      "recurrence": null
+      "recurrence": null,
+      "tags": ["dev", "testing"]
     },
     {
       "id": "ex-003",
       "title": "Review pull requests",
-      "date": "2026-02-18",
+      "date": "2026-02-08",
       "priority": "P1",
       "type": "task",
       "done": false,
-      "notes": "",
+      "notes": "Check open PRs on GitHub.",
       "subtasks": [],
-      "recurrence": { "type": "weekly", "dow": 2 }
+      "recurrence": { "type": "weekly", "dow": 6 },
+      "tags": ["dev"]
     },
     {
       "id": "ex-004",
-      "title": "Update project README",
-      "date": "2026-02-20",
-      "priority": "P2",
-      "type": "task",
-      "done": false,
-      "notes": "Add OpenClaw integration section.",
-      "subtasks": [],
-      "recurrence": null
-    },
-    {
-      "id": "ex-005",
-      "title": "Deploy staging environment",
-      "date": "2026-02-28",
-      "priority": "P1",
-      "type": "deadline",
-      "done": false,
-      "notes": "Must be done before March sprint begins.",
-      "subtasks": [
-        { "id": "ex-005-1", "title": "Provision server", "done": false },
-        { "id": "ex-005-2", "title": "Configure env vars", "done": false },
-        { "id": "ex-005-3", "title": "Run smoke tests", "done": false }
-      ],
-      "recurrence": null
-    },
-    {
-      "id": "ex-006",
-      "title": "Monthly server costs",
-      "date": "2026-03-01",
-      "priority": "P1",
-      "type": "payment",
-      "done": false,
-      "notes": "Cloud hosting invoice.",
-      "subtasks": [],
-      "recurrence": { "type": "monthly", "day": 1 }
-    },
-    {
-      "id": "ex-007",
       "title": "Team standup",
-      "date": "2026-02-18",
+      "date": "2026-02-12",
       "priority": "P2",
       "type": "reminder",
       "done": false,
       "notes": "9am, join via link in calendar.",
       "subtasks": [],
-      "recurrence": { "type": "weekly", "dow": 1 }
+      "recurrence": { "type": "weekdays" },
+      "tags": ["team"]
+    },
+    {
+      "id": "ex-005",
+      "title": "Update project documentation",
+      "date": "2026-02-16",
+      "priority": "P2",
+      "type": "task",
+      "done": false,
+      "notes": "Document new CLI commands and API endpoints.",
+      "subtasks": [],
+      "recurrence": null,
+      "tags": ["docs"]
+    },
+    {
+      "id": "ex-006",
+      "title": "Cloud server hosting",
+      "date": "2026-02-20",
+      "priority": "P1",
+      "type": "payment",
+      "done": false,
+      "notes": "Monthly hosting invoice.",
+      "amount": "45.00",
+      "currency": "CHF",
+      "subtasks": [],
+      "recurrence": { "type": "monthly", "day": 20 },
+      "tags": ["finance"]
+    },
+    {
+      "id": "ex-007",
+      "title": "Deploy staging environment",
+      "date": "2026-02-24",
+      "priority": "P1",
+      "type": "deadline",
+      "done": false,
+      "notes": "Must be deployed before release testing begins.",
+      "subtasks": [
+        { "id": "ex-007-1", "title": "Provision server", "done": false },
+        { "id": "ex-007-2", "title": "Configure env vars", "done": false },
+        { "id": "ex-007-3", "title": "Run smoke tests", "done": false }
+      ],
+      "recurrence": null,
+      "tags": ["ops", "dev"]
     },
     {
       "id": "ex-008",
       "title": "Refactor authentication module",
-      "date": "2026-03-05",
+      "date": "2026-02-28",
       "priority": "P2",
       "type": "task",
       "done": false,
-      "notes": "Extract token validation into a shared helper.",
+      "notes": "Extract token validation into shared helper.",
       "subtasks": [],
-      "recurrence": null
+      "recurrence": null,
+      "tags": ["dev"]
     },
     {
       "id": "ex-009",
-      "title": "Read Bun 2.0 release notes",
-      "date": "2026-03-10",
+      "title": "Read Bun release notes",
+      "date": "2026-03-05",
       "priority": "P3",
       "type": "task",
       "done": false,
-      "notes": "",
+      "notes": "Check latest features and performance updates.",
       "subtasks": [],
-      "recurrence": null
+      "recurrence": null,
+      "tags": ["research"]
     },
     {
       "id": "ex-010",
       "title": "Explore MCP integrations",
-      "date": "2026-03-15",
+      "date": "2026-03-10",
       "priority": "P3",
       "type": "task",
       "done": false,
-      "notes": "Look into connecting bun-do to OpenClaw via MCP.",
+      "notes": "Test Claude desktop MCP connection.",
       "subtasks": [],
-      "recurrence": null
+      "recurrence": null,
+      "tags": ["research"]
     }
   ]
 }

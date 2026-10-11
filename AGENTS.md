@@ -8,7 +8,7 @@ All data is stored in plain JSON files. Nothing leaves your machine.
 | File | Role |
 |------|------|
 | `server.ts` | HTTP server — API + static frontend |
-| `cli.ts` | Service manager (`start/stop/restart/status/open`) |
+| `cli.ts` | Service manager (`start/stop/restart/status/open/app/install-skill/backups/restore/help`) |
 | `mcp.ts` | MCP stdio server (`bun-do-mcp`) |
 | `static/index.html` | Full frontend (Alpine.js, vendored, offline-capable) |
 | `skill/SKILL.md` | Full API reference for skill-based agents |
@@ -26,7 +26,9 @@ BUNDO_E2E=1 bun test test/e2e   # browser tests (bunx playwright-core install ch
 bun cli.ts start     # background service (writes PID + log)
 bun cli.ts stop
 bun cli.ts restart
-bun cli.ts status
+bun cli.ts status    # state, version, URL, data dir, log path
+bun cli.ts open      # start + open in browser
+bun cli.ts help      # show usage and command help
 bun cli.ts backups   # list backups (works without running server)
 bun cli.ts restore <file> # restore backup (via API if running, else direct)
 
@@ -40,6 +42,7 @@ Base URL: `http://localhost:8000`
 ```
 GET    /api/tasks                        list all tasks (optional ?tag=)
 POST   /api/tasks                        create task
+POST   /api/tasks/examples               load example tasks (dated over next 2 weeks)
 PUT    /api/tasks/:id                    update task (partial)
 DELETE /api/tasks/:id                    delete task
 POST   /api/tasks/:id/subtasks           add subtask
@@ -77,6 +80,8 @@ Recurrence: `null` or `{"type": "daily"|"weekdays"|"weekly"|"monthly"|"yearly", 
 Tags: a list, or one comma-separated string on create and update. Normalised on write: trimmed, a leading `#` removed, lower case, whitespace runs become `-`, only letters, digits, `-` and `_`, at most 32 characters, at most 10 per task, duplicates dropped. Missing tags on old files load as `[]`. `GET /api/tasks?tag=work` (also `#work`) returns only tasks carrying that tag; omit `tag` for the full list. The next occurrence of a recurring task keeps its tags.
 
 ## Backups & data safety
+
+On first run, a new data directory starts with an empty task list (`tasks.json` created as `[]`).
 
 Before the first write of each local calendar day to `tasks.json` (and, separately, to `projects.json`), the server copies the current file to `BUNDO_DATA_DIR/backups/` as `tasks-YYYY-MM-DD.json` (`projects-YYYY-MM-DD.json`). Later writes that day leave it alone. The newest `BUNDO_BACKUP_KEEP` backups of each kind are retained (default 30).
 

@@ -39,13 +39,101 @@ if (args.includes("--serve")) {
   await import("./server.ts");
   // server.ts calls Bun.serve() which keeps the event loop alive
 } else {
-// Parse command and --port
-const command =
-  args.find((a) =>
-    ["start", "stop", "restart", "status", "open", "app", "install-skill", "backups", "restore"].includes(a)
-  ) || "start";
-const portArgs = args.filter((a) => a.startsWith("--port="));
-const port = portArgs[0]?.split("=")[1] || "8000";
+function printHelp(out: (msg: string) => void = console.log): void {
+  out("Usage: bun-do [command] [options]");
+  out("");
+  out("Commands:");
+  out("  start          Start background server (default)");
+  out("  stop           Stop background server");
+  out("  restart        Restart background server");
+  out("  status         Show server status and configuration");
+  out("  open           Start server (if needed) and open in default browser");
+  out("  app            Open native macOS app window (macOS only)");
+  out("  install-skill  Install bun-do skill to Claude Code (~/.claude/skills)");
+  out("  backups        List available database backups");
+  out("  restore        Restore data from a backup file (bun-do restore <file>)");
+  out("  help           Show this help message");
+  out("");
+  out("Options:");
+  out("  --port=<port>  Port to listen on (1-65535, default: 8000)");
+  out("  --version, -v  Print version and exit");
+  out("  --help, -h     Show this help message");
+  out("");
+  out("Environment:");
+  out("  BUNDO_DATA_DIR     Directory for data and backups (default: ~/.bun-do)");
+  out("  BUNDO_BACKUP_KEEP  Number of daily backups to keep (default: 30)");
+}
+
+if (args.includes("help") || args.includes("--help") || args.includes("-h")) {
+  printHelp(console.log);
+  process.exit(0);
+}
+
+const portArgs = args.filter((a) => a === "--port" || a.startsWith("--port="));
+let port = "8000";
+if (portArgs.length > 0) {
+  const pArg = portArgs[0];
+  if (!pArg.startsWith("--port=")) {
+    console.error("[bun-do] error: --port must be a whole number 1 to 65535");
+    process.exit(1);
+  }
+  const rawPort = pArg.slice("--port=".length);
+  if (!/^\d+$/.test(rawPort)) {
+    console.error("[bun-do] error: --port must be a whole number 1 to 65535");
+    process.exit(1);
+  }
+  const portNum = parseInt(rawPort, 10);
+  if (portNum < 1 || portNum > 65535) {
+    console.error("[bun-do] error: --port must be a whole number 1 to 65535");
+    process.exit(1);
+  }
+  port = rawPort;
+}
+
+const KNOWN_COMMANDS: Record<string, true> = {
+  start: true,
+  stop: true,
+  restart: true,
+  status: true,
+  open: true,
+  app: true,
+  "install-skill": true,
+  backups: true,
+  restore: true,
+  help: true,
+};
+
+const positionals = args.filter((a) => !a.startsWith("-"));
+let command = "start";
+if (positionals.length > 0) {
+  command = positionals[0];
+  if (!KNOWN_COMMANDS[command]) {
+    console.error(`unknown command: ${command}`);
+    console.error("");
+    printHelp(console.error);
+    process.exit(1);
+  }
+}
+
+const unknownFlag = args.find(
+  (a) =>
+    a.startsWith("-") &&
+    !a.startsWith("--port=") &&
+    a !== "--port" &&
+    a !== "--openclaw" &&
+    a !== "--version" &&
+    a !== "-v" &&
+    a !== "--help" &&
+    a !== "-h" &&
+    a !== "--serve"
+);
+if (unknownFlag) {
+  console.error(`unknown command: ${unknownFlag}`);
+  console.error("");
+  printHelp(console.error);
+  process.exit(1);
+}
+
 const url = `http://localhost:${port}`;
 const BACKUPS_DIR = join(DATA_DIR, "backups");
 const BACKUP_FILENAME_RE = /^(tasks|projects)-(\d{4}-\d{2}-\d{2})(T\d{6}-before-restore)?\.json$/;
@@ -79,15 +167,30 @@ function isRunning(pid: number): boolean {
   }
 }
 
-async function waitForReady(): Promise<boolean> {
-  const portNum = parseInt(port);
+async function waitForReady(childPid?: number): Promise<boolean> {
+  const portNum = parseInt(port, 10);
   for (let i = 0; i < 40; i++) {
+    if (childPid && !isRunning(childPid)) {
+      return false;
+    }
     const up = await new Promise<boolean>((resolve) => {
       const s = createConnection({ host: "127.0.0.1", port: portNum });
+      s.setTimeout(100, () => { s.destroy(); resolve(false); });
       s.once("connect", () => { s.destroy(); resolve(true); });
-      s.once("error", () => resolve(false));
+      s.once("error", () => { s.destroy(); resolve(false); });
     });
-    if (up) return true;
+    if (up) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${portNum}/api/tasks`, {
+          headers: { Host: `127.0.0.1:${portNum}` },
+          signal: AbortSignal.timeout(200),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { tasks?: unknown };
+          if (data && Array.isArray(data.tasks)) return true;
+        }
+      } catch {}
+    }
     await Bun.sleep(100);
   }
   return false;
@@ -119,7 +222,7 @@ async function start(): Promise<boolean> {
   }
 
   const logFd = openSync(LOG_FILE, "a");
-  const child = spawn("bun", [import.meta.filename, "--serve", ...portArgs], {
+  const child = spawn("bun", [import.meta.filename, "--serve", `--port=${port}`], {
     detached: true,
     stdio: ["ignore", logFd, logFd],
     env: { ...process.env, BUNDO_DATA_DIR: DATA_DIR },
@@ -129,24 +232,48 @@ async function start(): Promise<boolean> {
   if (child.pid) writeFileSync(PID_FILE, String(child.pid));
 
   const pkg = JSON.parse(readFileSync(join(import.meta.dir, "package.json"), "utf-8"));
-  const ready = await waitForReady();
+  const ready = await waitForReady(child.pid);
   if (!ready) {
-    console.log(`[bun-do] v${pkg.version} started (pid ${child.pid}) but not yet responding`);
-  } else {
-    console.log(`[bun-do] v${pkg.version} started (pid ${child.pid})`);
+    if (child.pid && !isRunning(child.pid)) {
+      try { unlinkSync(PID_FILE); } catch {}
+    }
+    console.error(`[bun-do] failed to reach server on ${url}`);
+    if (existsSync(LOG_FILE)) {
+      const logContent = readFileSync(LOG_FILE, "utf-8").trim();
+      if (logContent) {
+        console.error(`[bun-do] last lines of log (${LOG_FILE}):`);
+        const lines = logContent.split("\n");
+        console.error(lines.slice(-10).join("\n"));
+      }
+    }
+    process.exit(1);
   }
+
+  console.log(`[bun-do] v${pkg.version} started (pid ${child.pid})`);
   console.log(`[bun-do] ${url}`);
   console.log(`[bun-do] log: ${LOG_FILE}`);
-  return ready;
+  return true;
 }
 
-function status() {
+function status(): void {
+  const pkg = JSON.parse(readFileSync(join(import.meta.dir, "package.json"), "utf-8"));
   const pid = getPid();
-  if (pid && isRunning(pid)) {
+  const running = pid !== null && isRunning(pid);
+  if (running) {
     console.log(`[bun-do] running (pid ${pid})`);
+    console.log(`[bun-do] version: ${pkg.version}`);
+    console.log(`[bun-do] ${url}`);
+    console.log(`[bun-do] data: ${DATA_DIR}`);
+    console.log(`[bun-do] log: ${LOG_FILE}`);
+    process.exit(0);
   } else {
     try { unlinkSync(PID_FILE); } catch {}
     console.log("[bun-do] not running");
+    console.log(`[bun-do] version: ${pkg.version}`);
+    console.log(`[bun-do] ${url}`);
+    console.log(`[bun-do] data: ${DATA_DIR}`);
+    console.log(`[bun-do] log: ${LOG_FILE}`);
+    process.exit(1);
   }
 }
 
@@ -419,5 +546,9 @@ switch (command) {
     }
     break;
   }
+  case "help":
+    printHelp(console.log);
+    process.exit(0);
+    break;
 }
 } // end else (service manager)

@@ -121,4 +121,92 @@ describe("cli", () => {
       cli("stop");
     }
   });
+  test("help command and flags print usage, commands, options, and env vars", () => {
+    for (const flag of ["help", "--help", "-h"]) {
+      const res = cli(flag);
+      expect(res.code).toBe(0);
+      expect(res.out.toLowerCase()).toContain("usage:");
+      for (const cmd of [
+        "start",
+        "stop",
+        "restart",
+        "status",
+        "open",
+        "app",
+        "install-skill",
+        "backups",
+        "restore",
+        "help",
+      ]) {
+        expect(res.out).toContain(cmd);
+      }
+      expect(res.out).toContain("--port");
+      expect(res.out).toContain("--version");
+      expect(res.out).toContain("BUNDO_DATA_DIR");
+      expect(res.out).toContain("BUNDO_BACKUP_KEEP");
+    }
+  });
+
+  test("unknown command exits 1, prints error and help, and does not start server", () => {
+    const res = cli("frobnicate");
+    expect(res.code).toBe(1);
+    expect(res.out).toContain("unknown command: frobnicate");
+    expect(res.out.toLowerCase()).toContain("usage:");
+    expect(existsSync(join(dataDir, "bun-do.pid"))).toBe(false);
+  });
+
+  test("bad port values are rejected with exit 1 and an error message", () => {
+    for (const bad of ["abc", "0", "70000", "-1"]) {
+      const res = cli("start", `--port=${bad}`);
+      expect(res.code).toBe(1);
+      expect(res.out).toContain("--port must be a whole number 1 to 65535");
+    }
+  });
+
+  test("status exits 1 when stopped and 0 when running with full metadata", async () => {
+    cli("stop");
+    const stopped = cli("status");
+    expect(stopped.code).toBe(1);
+    expect(stopped.out).toContain("not running");
+    expect(stopped.out).toContain(dataDir);
+
+    const sPort = freePort();
+    cli("start", `--port=${sPort}`);
+    try {
+      const running = cli("status", `--port=${sPort}`);
+      expect(running.code).toBe(0);
+      expect(running.out).toContain("running (pid");
+      const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8")) as { version: string };
+      expect(running.out).toContain(pkg.version);
+      expect(running.out).toContain(dataDir);
+      expect(running.out).toContain(String(sPort));
+      expect(running.out).toContain("bun-do.log");
+    } finally {
+      cli("stop");
+    }
+  });
+
+  test("start on a busy port prints log lines and exits 1", async () => {
+    const busyPort = freePort();
+    const busyProc = Bun.spawn([
+      "bun",
+      "-e",
+      `Bun.serve({ hostname: "127.0.0.1", port: ${busyPort}, fetch: () => new Response("busy") }); await Bun.sleep(60000)`,
+    ]);
+    for (let i = 0; i < 30; i++) {
+      try {
+        const r = await fetch(`http://127.0.0.1:${busyPort}`);
+        if (r.ok) break;
+      } catch {}
+      await Bun.sleep(50);
+    }
+    try {
+      const res = cli("start", `--port=${busyPort}`);
+      expect(res.code).toBe(1);
+      expect(res.out).toMatch(/in use|EADDRINUSE|log/i);
+    } finally {
+      busyProc.kill();
+      cli("stop");
+    }
+  });
 });

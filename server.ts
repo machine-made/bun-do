@@ -713,6 +713,93 @@ function handleClearDone(): Response {
   saveTasks();
   return json({ cleared });
 }
+function loadExampleTasks(): Task[] {
+  const examplePath = join(PKG_DIR, "data", "tasks.example.json");
+  if (!existsSync(examplePath)) return [];
+  try {
+    const raw = JSON.parse(readFileSync(examplePath, "utf-8"));
+    const items = extractTaskArray(raw);
+    if (!Array.isArray(items) || items.length === 0) return [];
+
+    const dayNums = items.map((item) => {
+      const d = String((item as Record<string, unknown>)?.date ?? "");
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        const [y, m, day] = d.split("-").map(Number);
+        return Math.floor(Date.UTC(y, m - 1, day) / 86400000);
+      }
+      return 0;
+    });
+
+    const minDay = Math.min(...dayNums);
+    const maxDay = Math.max(...dayNums);
+    const span = maxDay - minDay;
+
+    const now = Date.now();
+    const result: Task[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i] as Record<string, unknown>;
+      const offset = span > 0 ? Math.round(((dayNums[i] - minDay) / span) * 14) : 0;
+      const targetTime = new Date(now + offset * 86400000);
+      const newDate = formatDate(targetTime);
+      const [ny, nm, nd] = newDate.split("-").map(Number);
+      const targetDate = new Date(ny, nm - 1, nd);
+      const newDow = (targetDate.getDay() + 6) % 7;
+
+      let recurrence = sanitizeRecurrence(item.recurrence);
+      if (recurrence) {
+        if (recurrence.type === "weekly") {
+          recurrence.dow = newDow;
+        } else if (recurrence.type === "monthly") {
+          recurrence.day = nd;
+        } else if (recurrence.type === "yearly") {
+          recurrence.month = nm;
+          recurrence.day = nd;
+        }
+      }
+
+      const subtasks: Subtask[] = Array.isArray(item.subtasks)
+        ? (item.subtasks as Record<string, unknown>[]).map((s) => ({
+            id: crypto.randomUUID(),
+            title: String(s?.title ?? "").trim(),
+            done: Boolean(s?.done),
+          }))
+        : [];
+
+      result.push({
+        id: crypto.randomUUID(),
+        title: String(item.title ?? "").trim() || "Untitled task",
+        date: newDate,
+        priority: PRIORITY_LABELS.includes(item.priority as Task["priority"])
+          ? (item.priority as Task["priority"])
+          : "P2",
+        notes: String(item.notes ?? "").trim(),
+        done: Boolean(item.done),
+        type: TASK_TYPES.includes(item.type as Task["type"])
+          ? (item.type as Task["type"])
+          : "task",
+        subtasks,
+        recurrence,
+        sort_order: tasks.length + i,
+        amount: String(item.amount ?? "").trim(),
+        currency: validCurrency(item.currency),
+        tags: normalizeTags(item.tags),
+      });
+    }
+
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+function handleLoadExamples(): Response {
+  const examples = loadExampleTasks();
+  tasks.push(...examples);
+  saveTasks();
+  return json({ ok: true, count: examples.length, tasks: examples });
+}
+
 
 async function handleUpdateTask(taskId: string, req: Request): Promise<Response> {
   const body = await parseJson(req);
@@ -1245,6 +1332,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (path === "/api/tasks/reorder" && method === "POST") return handleReorderTasks(req);
   if (path === "/api/tasks/clear-done" && method === "POST") return handleClearDone();
 
+  if (path === "/api/tasks/examples" && method === "POST") return handleLoadExamples();
   match = path.match(/^\/api\/tasks\/([^/]+)$/);
   if (match) {
     if (method === "PUT") return handleUpdateTask(match[1], req);
@@ -1290,9 +1378,7 @@ async function handleRequest(req: Request): Promise<Response> {
 
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 if (!existsSync(TASKS_PATH)) {
-  const examplePath = join(PKG_DIR, "data", "tasks.example.json");
-  const seed = existsSync(examplePath) ? readFileSync(examplePath, "utf-8") : "[]";
-  writeFileSync(TASKS_PATH, seed);
+  writeFileSync(TASKS_PATH, "[]");
 }
 if (!existsSync(PROJECTS_PATH)) {
   writeFileSync(PROJECTS_PATH, "[]");

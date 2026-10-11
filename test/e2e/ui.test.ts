@@ -246,4 +246,38 @@ describe.skipIf(!enabled)("web interface", () => {
       await page.close();
     }
   });
+  test("empty first run displays guide with Add task and Load example buttons, and loading examples hides guide", async () => {
+    const emptyServer = await startServer({ emptyFirstRun: true });
+    const page = await browser.newPage();
+    const errors: string[] = [];
+    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    page.on("pageerror", (e) => errors.push(String(e)));
+
+    try {
+      await page.goto(emptyServer.base + "/");
+      await page.waitForFunction(() => (window as unknown as { Alpine?: unknown }).Alpine !== undefined);
+
+      const guide = page.locator(".guide-panel");
+      await guide.waitFor({ state: "visible", timeout: 3000 });
+
+      expect(await guide.textContent()).toContain("How to add a task");
+      expect(await guide.textContent()).toContain("Keyboard shortcuts");
+      expect(await guide.textContent()).toContain("Where data is stored");
+
+      const addBtn = page.getByRole("button", { name: "Add task" });
+      expect(await addBtn.isVisible()).toBe(true);
+
+      const loadBtn = page.getByRole("button", { name: "Load example tasks" });
+      expect(await loadBtn.isVisible()).toBe(true);
+
+      await loadBtn.click();
+      await guide.waitFor({ state: "hidden", timeout: 3000 });
+      await page.keyboard.press("1");
+      await page.getByText("Write unit tests for API").first().waitFor({ timeout: 3000 });
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+      emptyServer.stop();
+    }
+  });
 });

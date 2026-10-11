@@ -793,6 +793,89 @@ body {
   font-size: 0.88rem;
   padding: 48px 0;
 }
+/* ── First Run Guide ────────────────────────── */
+.guide-panel {
+  max-width: 680px;
+  margin: 36px auto;
+  padding: 32px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.guide-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+.guide-header h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+.guide-header p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin: 0;
+}
+.guide-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+@media (min-width: 600px) {
+  .guide-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.guide-card {
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+}
+.guide-card h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.guide-card p, .guide-card ul {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+.guide-card ul {
+  list-style: none;
+}
+.guide-card li {
+  margin-bottom: 6px;
+}
+.guide-card kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 0.75rem;
+  font-family: var(--font);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+}
+.guide-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+}
+.guide-btn-secondary {
+  border: 1px solid var(--border);
+}
 
 /* ── Modal ──────────────────────────────────── */
 .modal-backdrop {
@@ -1208,7 +1291,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
   </nav>
 
   <!-- Period Navigation (hidden on projects view) -->
-  <div class="period-nav" x-show="!isListView()">
+  <div class="period-nav" x-show="!isListView() && tasks.length > 0">
     <button class="btn-nav" @click="prevPeriod()">&#8249;</button>
     <span class="period-label" x-text="getPeriodLabel()"></span>
     <button class="btn-nav" @click="nextPeriod()">&#8250;</button>
@@ -1216,7 +1299,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
 
   <!-- Main Content -->
   <main class="content">
-    <div class="tag-bar" x-show="tagCounts().length || tagFilter">
+    <div class="tag-bar" x-show="tasks.length > 0 && (tagCounts().length || tagFilter)">
       <template x-for="item in tagCounts()" :key="item.tag">
         <button type="button" class="tag-filter" :class="{ active: tagFilter === item.tag }" :data-tag="item.tag" @click="setTagFilter(item.tag)">
           <span x-text="'#' + item.tag"></span>
@@ -1225,9 +1308,41 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
       </template>
       <button type="button" class="tag-clear" x-show="tagFilter" @click="clearTagFilter()" aria-label="Clear tag filter" title="Clear tag filter">&times;</button>
     </div>
+    <!-- First Run Guide (shown when no tasks exist) -->
+    <div class="guide-panel" x-show="tasks.length === 0 && view !== 'projects'">
+      <div class="guide-header">
+        <h2>Welcome to bun-do</h2>
+        <p>A fast, local-first todo app that stores everything in plain JSON files.</p>
+      </div>
+
+      <div class="guide-grid">
+        <div class="guide-card">
+          <h3>How to add a task</h3>
+          <p>Click <strong>+ Add</strong> or press <kbd>n</kbd> anywhere to create a task. Type <code>#tag</code> in the title to add tags automatically.</p>
+        </div>
+        <div class="guide-card">
+          <h3>Keyboard shortcuts</h3>
+          <ul class="guide-list">
+            <li><kbd>n</kbd> New task</li>
+            <li><kbd>1</kbd>&ndash;<kbd>5</kbd> Switch views</li>
+            <li><kbd>/</kbd> Focus search</li>
+            <li><kbd>Esc</kbd> Close dialogs</li>
+          </ul>
+        </div>
+        <div class="guide-card">
+          <h3>Where data is stored</h3>
+          <p>Stored locally in plain JSON in <code>BUNDO_DATA_DIR</code> (<code>~/.bun-do</code> or <code>./data</code>). Nothing leaves your machine.</p>
+        </div>
+      </div>
+
+      <div class="guide-actions">
+        <button type="button" class="btn-primary" @click="openAddModal()">Add task</button>
+        <button type="button" class="btn-ghost guide-btn-secondary" @click="loadExampleTasks()">Load example tasks</button>
+      </div>
+    </div>
 
     <!-- All View -->
-    <template x-if="view === 'all'">
+    <template x-if="tasks.length > 0 && view === 'all'">
       <div>
         <div class="section-header">
           All Tasks<span class="section-count" x-text="allTasks().length + ' items'"></span>
@@ -1297,7 +1412,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
     </template>
 
     <!-- Backlog View -->
-    <template x-if="view === 'backlog'">
+    <template x-if="tasks.length > 0 && view === 'backlog'">
       <div>
         <div class="section-header">
           Backlog<span class="section-count" x-text="backlogTasks().length + ' items'"></span>
@@ -1363,7 +1478,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
     </template>
 
     <!-- Payments View -->
-    <template x-if="view === 'payments'">
+    <template x-if="tasks.length > 0 && view === 'payments'">
       <div>
         <div class="section-header">
           Payments<span class="section-count" x-text="paymentTasks().length + ' items'"></span>
@@ -1414,7 +1529,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
     </template>
 
     <!-- Year View -->
-    <template x-if="view === 'year'">
+    <template x-if="tasks.length > 0 && view === 'year'">
       <div>
         <div class="month-grid" x-show="monthsWithTasks(year).length > 0">
           <template x-for="m in monthsWithTasks(year)" :key="m.index">
@@ -1491,7 +1606,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
     </template>
 
     <!-- Month View -->
-    <template x-if="view === 'month'">
+    <template x-if="tasks.length > 0 && view === 'month'">
       <div>
         <!-- Calendar Grid -->
         <div class="calendar">
@@ -1594,7 +1709,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
     </template>
 
     <!-- Day View -->
-    <template x-if="view === 'day'">
+    <template x-if="tasks.length > 0 && view === 'day'">
       <div>
         <div class="section-header">
           Tasks<span class="section-count" x-text="tasksForDate(day).length + ' items'"></span>
@@ -2366,6 +2481,14 @@ function todoApp() {
         this.form = defaultForm();
         this.toast('Task added');
         this._sync('addTask');
+      }
+    },
+    async loadExampleTasks() {
+      const res = await this.apiFetch('/api/tasks/examples', { method: 'POST' });
+      if (res.ok) {
+        await this.fetchTasks();
+        this.toast('Example tasks loaded');
+        this._sync('loadExamples');
       }
     },
 

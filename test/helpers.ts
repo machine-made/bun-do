@@ -22,10 +22,13 @@ export async function startServer(
     rawProjects?: string;
     env?: Record<string, string>;
     dataDir?: string;
+    emptyFirstRun?: boolean;
   } = {},
 ): Promise<TestServer> {
   const dataDir = options.dataDir ?? mkdtempSync(join(tmpdir(), "bun-do-test-"));
-  if (options.rawTasks !== undefined) {
+  if (options.emptyFirstRun) {
+    // Do not create tasks.json beforehand so server bootstrap runs on empty directory
+  } else if (options.rawTasks !== undefined) {
     writeFileSync(join(dataDir, "tasks.json"), options.rawTasks);
   } else if (!existsSync(join(dataDir, "tasks.json"))) {
     writeFileSync(join(dataDir, "tasks.json"), JSON.stringify(options.tasks ?? []));

@@ -60,16 +60,19 @@ bun-do open     # start server + open in browser
 Data is stored in `~/.bun-do`.
 
 ### Service manager commands
-
 ```bash
-bun-do start     # start background server (default)
-bun-do stop      # stop background server
-bun-do restart   # restart background server
-bun-do status    # check running state
-bun-do open      # start + open in browser
-bun-do --version # print version
+bun-do start          # start background server (default)
+bun-do stop           # stop background server
+bun-do restart        # restart background server
+bun-do status         # check running state, version, and paths
+bun-do open           # start server + open in browser
+bun-do app            # open native macOS app window (macOS only)
+bun-do install-skill  # install Claude Code skill (~/.claude/skills)
+bun-do backups        # list backups
+bun-do restore <file> # restore backup
+bun-do help           # show usage and command help
+bun-do --version      # print version
 ```
-
 Custom port:
 
 ```bash
@@ -201,13 +204,13 @@ All data is plain JSON in `BUNDO_DATA_DIR`:
 data/
   tasks.json            # your tasks
   projects.json         # your projects
-  tasks.example.json    # seed data (committed to repo)
+  tasks.example.json    # example data (committed to repo)
   backups/              # automatic daily and before-restore snapshots
     tasks-YYYY-MM-DD.json
     projects-YYYY-MM-DD.json
 ```
 
-On first run, `tasks.example.json` seeds `tasks.json` if it doesn't exist.
+On first run, a new data directory starts with an empty task list (`[]`) and a guide. Example tasks can be loaded at any time via the guide button or through `POST /api/tasks/examples`.
 
 Before the first write of each calendar day, `tasks.json` and `projects.json` are automatically copied to `backups/`. The newest `BUNDO_BACKUP_KEEP` files of each kind are retained (default 30). Use `bun-do backups` to list backups and `bun-do restore <file>` to restore one (via the API when running, or directly on the files when stopped). If a data file is unreadable at startup, it is safely renamed to `<kind>.corrupt-<timestamp>.json` and the newest readable backup is loaded.
 ## API
@@ -220,6 +223,7 @@ Before the first write of each calendar day, `tasks.json` and `projects.json` ar
 | `DELETE` | `/api/tasks/:id` | Delete task |
 | `POST` | `/api/tasks/reorder` | Persist backlog order |
 | `POST` | `/api/tasks/clear-done` | Remove completed tasks |
+| `POST` | `/api/tasks/examples` | Load example tasks dated over the next two weeks |
 | `POST` | `/api/tasks/:id/subtasks` | Add subtask |
 | `PUT` | `/api/tasks/:id/subtasks/:sid` | Update subtask |
 | `DELETE` | `/api/tasks/:id/subtasks/:sid` | Delete subtask |

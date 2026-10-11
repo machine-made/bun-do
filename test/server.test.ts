@@ -1026,3 +1026,101 @@ describe("calendar feed", () => {
     expect(res.status).toBe(403);
   });
 });
+describe("first run and example tasks", () => {
+  test("new data directory starts with empty tasks.json", async () => {
+    const s = await startServer({ emptyFirstRun: true });
+    try {
+      const res = await api(s, "GET", "/api/tasks");
+      expect(res.status).toBe(200);
+      expect(res.body.tasks).toEqual([]);
+      const diskContent = readFileSync(join(s.dataDir, "tasks.json"), "utf-8");
+      expect(diskContent).toBe("[]");
+    } finally {
+      s.stop();
+    }
+  });
+
+  test("POST /api/tasks/examples loads examples with dates between today and 14 days ahead and keeps anchors", async () => {
+    const s = await startServer({ emptyFirstRun: true });
+    try {
+      const raw = JSON.parse(readFileSync(join(import.meta.dir, "../data/tasks.example.json"), "utf-8"));
+      const exampleCount = (Array.isArray(raw) ? raw : raw.tasks).length;
+
+      const res = await api(s, "POST", "/api/tasks/examples");
+      expect(res.status).toBe(200);
+
+      const listRes = await api(s, "GET", "/api/tasks");
+      expect(listRes.status).toBe(200);
+      interface TaskRecord {
+        id: string;
+        title: string;
+        date: string;
+        type: string;
+        amount?: string;
+        currency?: string;
+        tags?: string[];
+        recurrence?: {
+          type?: string;
+          dow?: number;
+          day?: number;
+        } | null;
+      }
+      const tasks = listRes.body.tasks as TaskRecord[];
+      expect(tasks.length).toBe(exampleCount);
+
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const todayStr = fmt(new Date());
+      const lastStr = fmt(new Date(Date.now() + 14 * 86400000));
+
+      for (const t of tasks) {
+        expect(t.date >= todayStr).toBe(true);
+        expect(t.date <= lastStr).toBe(true);
+      }
+
+      // Weekly recurrence anchor follows new date
+      for (const t of tasks.filter((t) => t.recurrence?.type === "weekly")) {
+        const [y, m, d] = t.date.split("-").map(Number);
+        const expectedDow = (new Date(y, m - 1, d).getDay() + 6) % 7;
+        expect(t.recurrence?.dow).toBe(expectedDow);
+      }
+
+      // Monthly recurrence anchor follows new date
+      for (const t of tasks.filter((t) => t.recurrence?.type === "monthly")) {
+        const [, , d] = t.date.split("-").map(Number);
+        expect(t.recurrence?.day).toBe(d);
+      }
+
+      // Preserves tags and payment properties
+      const payment = tasks.find((t) => t.type === "payment");
+      expect(payment).toBeDefined();
+      expect(payment?.amount).toBe("45.00");
+      expect(payment?.currency).toBe("CHF");
+
+      const tagged = tasks.filter((t) => (t.tags || []).length > 0);
+      expect(tagged.length).toBeGreaterThan(0);
+    } finally {
+      s.stop();
+    }
+  });
+
+  test("POST /api/tasks/examples respects Host and Origin checks", async () => {
+    const s = await startServer({ emptyFirstRun: true });
+    try {
+      // Foreign host
+      const hostRes = await fetch(s.base + "/api/tasks/examples", {
+        method: "POST",
+        headers: { Host: `evil.com:${s.port}` },
+      });
+      expect(hostRes.status).toBe(403);
+
+      // Foreign origin
+      const originRes = await fetch(s.base + "/api/tasks/examples", {
+        method: "POST",
+        headers: { Origin: "http://evil.com" },
+      });
+      expect(originRes.status).toBe(403);
+    } finally {
+      s.stop();
+    }
+  });
+});
