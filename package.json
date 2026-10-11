@@ -23,7 +23,8 @@
   "scripts": {
     "start": "bun run server.ts",
     "dev": "bun --watch run server.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "screenshots": "bun scripts/screenshots.ts"
   },
   "keywords": [
     "bun",
