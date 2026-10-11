@@ -794,3 +794,235 @@ describe("backups", () => {
     }
   });
 });
+describe("calendar feed", () => {
+  let calServer: TestServer;
+
+  beforeAll(async () => {
+    calServer = await startServer({
+      tasks: [
+        {
+          id: "t-pay",
+          title: "Electricity bill",
+          date: "2026-11-02",
+          type: "payment",
+          priority: "P1",
+          amount: "120.50",
+          currency: "CHF",
+          tags: ["home", "bills"],
+        },
+        {
+          id: "t-rem",
+          title: "Call the dentist",
+          date: "2026-11-03",
+          type: "reminder",
+          priority: "P2",
+        },
+        {
+          id: "t-dl",
+          title: "Prüfungsanmeldung für das Wintersemester an der École polytechnique fédérale de Lausanne",
+          date: "2026-11-04",
+          type: "deadline",
+          priority: "P0",
+          notes: "Bring: ID, photo; fee 50 CHF\nRoom B; path C:\\temp",
+        },
+        {
+          id: "t-w2",
+          title: "Team sync",
+          date: "2026-10-12",
+          type: "task",
+          priority: "P1",
+          recurrence: { type: "weekly", dow: 0, interval: 2 },
+        },
+        {
+          id: "t-m31",
+          title: "Rent",
+          date: "2026-01-31",
+          type: "payment",
+          priority: "P1",
+          amount: "1800",
+          currency: "CHF",
+          recurrence: { type: "monthly", day: 31 },
+        },
+        {
+          id: "t-m30",
+          title: "Water meter",
+          date: "2026-11-30",
+          type: "task",
+          priority: "P2",
+          recurrence: { type: "monthly", day: 30, interval: 2 },
+        },
+        {
+          id: "t-wd",
+          title: "Standup",
+          date: "2026-10-09",
+          type: "reminder",
+          priority: "P2",
+          recurrence: { type: "weekdays" },
+        },
+        {
+          id: "t-d3",
+          title: "Water plants",
+          date: "2026-10-09",
+          type: "task",
+          priority: "P2",
+          recurrence: { type: "daily", interval: 3 },
+        },
+        {
+          id: "t-d1",
+          title: "Daily habit",
+          date: "2026-10-09",
+          type: "task",
+          priority: "P2",
+          recurrence: { type: "daily" },
+        },
+        {
+          id: "t-y2",
+          title: "Leap check",
+          date: "2028-02-29",
+          type: "deadline",
+          priority: "P2",
+          recurrence: { type: "yearly", month: 2, day: 29, interval: 2 },
+        },
+        {
+          id: "t-y1",
+          title: "Annual review",
+          date: "2026-05-15",
+          type: "task",
+          priority: "P2",
+          recurrence: { type: "yearly", month: 5, day: 15 },
+        },
+        {
+          id: "t-done",
+          title: "Done task",
+          date: "2026-11-05",
+          type: "task",
+          priority: "P2",
+          done: true,
+        },
+        {
+          id: "t-back",
+          title: "Backlog item",
+          date: "2026-11-06",
+          type: "task",
+          priority: "P3",
+        },
+        {
+          id: "t-p3dl",
+          title: "P3 deadline",
+          date: "2026-11-07",
+          type: "deadline",
+          priority: "P3",
+        },
+      ],
+    });
+  });
+
+  afterAll(() => calServer?.stop());
+
+  test("GET /calendar.ics returns text/calendar; charset=utf-8 with valid VCALENDAR structure", async () => {
+    const res = await fetch(calServer.base + "/calendar.ics");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/^text\/calendar;\s*charset=utf-8$/i);
+
+    const text = await res.text();
+    expect(text.startsWith("BEGIN:VCALENDAR\r\n")).toBe(true);
+    expect(text.endsWith("END:VCALENDAR\r\n")).toBe(true);
+    expect(text).toContain("VERSION:2.0\r\n");
+    expect(text).toContain("PRODID:-//bun-do//EN\r\n");
+    expect(text).toContain("X-WR-CALNAME:bun-do\r\n");
+  });
+
+  test("feed lines end with CRLF, no bare LF or CR, and fold at <= 75 octets without splitting UTF-8", async () => {
+    const res = await fetch(calServer.base + "/calendar.ics");
+    const raw = Buffer.from(await res.arrayBuffer());
+
+    // Split on CRLF
+    const lines = raw.toString("utf-8").split("\r\n");
+    expect(lines[lines.length - 1]).toBe(""); // ends with CRLF
+
+    for (let i = 0; i < lines.length - 1; i++) {
+      const line = lines[i];
+      expect(line.includes("\r")).toBe(false);
+      expect(line.includes("\n")).toBe(false);
+      const byteLen = Buffer.byteLength(line, "utf-8");
+      expect(byteLen).toBeLessThanOrEqual(75);
+    }
+  });
+
+  test("events have UID, DTSTAMP, DTSTART, DTEND (next day), and correct fields", async () => {
+    const res = await fetch(calServer.base + "/calendar.ics");
+    const text = await res.text();
+
+    expect(text).toContain("UID:t-pay@bun-do\r\n");
+    expect(text).toContain("DTSTART;VALUE=DATE:20261102\r\n");
+    expect(text).toContain("DTEND;VALUE=DATE:20261103\r\n");
+    expect(text).toContain("SUMMARY:Electricity bill - CHF 120.50\r\n");
+    expect(text).toContain("CATEGORIES:home,bills\r\n");
+    expect(text).toContain("PRIORITY:3\r\n");
+
+    // P0 priority is 1
+    expect(text).toContain("UID:t-dl@bun-do\r\n");
+    expect(text).toContain("PRIORITY:1\r\n");
+    // Escaped text in notes: \n, \;, \\
+    expect(text).toContain("DESCRIPTION:Bring: ID\\, photo\\; fee 50 CHF\\nRoom B\\; path C:\\\\temp\r\n");
+
+    // Reminders have VALARM, other types do not
+    expect(text).toContain("UID:t-rem@bun-do\r\n");
+    expect(text).toContain("BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:PT9H\r\n");
+  });
+
+  test("done tasks and backlog items are excluded; P3 non-task items are included", async () => {
+    const res = await fetch(calServer.base + "/calendar.ics");
+    const text = await res.text();
+
+    expect(text).not.toContain("t-done@bun-do");
+    expect(text).not.toContain("t-back@bun-do");
+    expect(text).toContain("t-p3dl@bun-do"); // deadline P3 is not backlog
+  });
+
+  test("each RRULE form matches bun-do recurrence format", async () => {
+    const res = await fetch(calServer.base + "/calendar.ics");
+    const text = await res.text();
+
+    // Daily with interval
+    expect(text).toContain("RRULE:FREQ=DAILY;INTERVAL=3\r\n");
+    // Daily default interval 1
+    expect(text).toContain("RRULE:FREQ=DAILY\r\n");
+    // Weekdays
+    expect(text).toContain("RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR\r\n");
+    // Weekly with interval
+    expect(text).toContain("RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO\r\n");
+    // Monthly clamped
+    expect(text).toContain("RRULE:FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1\r\n");
+    expect(text).toContain("RRULE:FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=28,29,30;BYSETPOS=-1\r\n");
+    // Yearly clamped and unclamped
+    expect(text).toContain("RRULE:FREQ=YEARLY;INTERVAL=2;BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1\r\n");
+    expect(text).toContain("RRULE:FREQ=YEARLY;BYMONTH=5;BYMONTHDAY=15\r\n");
+  });
+
+  test("?types= filter restricts events to specified types", async () => {
+    const res = await fetch(calServer.base + "/calendar.ics?types=payment");
+    const text = await res.text();
+
+    expect(text).toContain("UID:t-pay@bun-do\r\n");
+    expect(text).toContain("UID:t-m31@bun-do\r\n");
+    expect(text).not.toContain("UID:t-rem@bun-do\r\n");
+    expect(text).not.toContain("UID:t-dl@bun-do\r\n");
+  });
+
+  test("?tag= filter restricts events to tasks with the tag", async () => {
+    const res = await fetch(calServer.base + "/calendar.ics?tag=home");
+    const text = await res.text();
+
+    expect(text).toContain("UID:t-pay@bun-do\r\n");
+    expect(text).not.toContain("UID:t-rem@bun-do\r\n");
+    expect(text).not.toContain("UID:t-m31@bun-do\r\n");
+  });
+
+  test("foreign Host gets 403 Forbidden", async () => {
+    const res = await fetch(calServer.base + "/calendar.ics", {
+      headers: { Host: "attacker.example:8000" },
+    });
+    expect(res.status).toBe(403);
+  });
+});

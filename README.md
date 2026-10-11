@@ -38,6 +38,8 @@ Most todo apps want you to sign up, sync to the cloud, or install an Electron ap
 
 **Projects** — Lightweight project tracker with timestamped progress log entries
 
+
+**Calendar** — RFC 5545 calendar feed (`/calendar.ics`) for calendar app subscriptions (Apple Calendar, Outlook, Thunderbird), with all-day events, recurrence rules, and reminder alarms
 **UX**
 - Keyboard shortcuts: `n` new task, `1`–`5` switch views, `/` search, `Esc` dismiss
 - Live search across task titles, notes and tags
@@ -230,6 +232,7 @@ Before the first write of each calendar day, `tasks.json` and `projects.json` ar
 | `DELETE` | `/api/projects/:id/entries/:eid` | Delete log entry |
 | `GET` | `/api/backups` | List backups (newest first: file name, kind, date, size, entries) |
 | `POST` | `/api/backups/restore` | Restore a backup (`{ file }`); saves state before restore first |
+| `GET` | `/calendar.ics` | RFC 5545 calendar feed (`text/calendar; charset=utf-8`). Optional `?types=` and `?tag=` |
 **Tags.** Each task has `tags`, a list of strings (empty when an older file has no tags). Create and update accept an array or one comma-separated string and replace the list. Values are trimmed, a leading `#` is removed, lower-cased, whitespace runs become `-`, and only letters, digits, `-` and `_` are kept (at most 32 characters, 10 per task, no duplicates). `GET /api/tasks?tag=work` filters; the value is normalised the same way, so `#WORK` matches `work`.
 
 **Recurrence.** A task's `recurrence` is `null` or `{"type": "daily"|"weekdays"|"weekly"|"monthly"|"yearly", ...}`: `weekly` uses `dow` (0 = Monday .. 6 = Sunday), `monthly` uses `day` (1–31), `yearly` uses `month` (1–12) and `day`. An optional `interval` (1–99) repeats every N days, weeks, months or years for daily, weekly, monthly and yearly (`weekdays` accepts only 1); it is stored only above 1. A missing anchor (`dow`, `day`, `month`) is taken from the task's date, so a monthly rule on the 31st stays anchored to the 31st after a short month. An invalid rule is refused with 400 and a `detail` naming the field.
@@ -238,6 +241,8 @@ MCP `add_task` and `update_task` accept `tags`, `recurrence`, `amount` and `curr
 
 **Backups.** `GET /api/backups` lists available backups newest first. `POST /api/backups/restore` with `{"file": "<name>"}` validates the filename, saves the current file as `<kind>-YYYY-MM-DDTHHMMSS-before-restore.json`, and loads the backup into memory and disk.
 
+
+**Calendar.** `GET /calendar.ics` returns an RFC 5545 calendar feed of open, dated tasks (backlog items stay out) formatted as all-day events (`UID:<id>@bun-do`, `DTSTAMP`, `DTSTART;VALUE=DATE`, `DTEND;VALUE=DATE`). `SUMMARY` contains the title (payments include currency and amount); `DESCRIPTION` contains notes; `CATEGORIES` contains tags; `PRIORITY` maps P0–P3 to 1, 3, 5, 9. Reminders include a `VALARM` display alarm at 09:00 local time. Recurring tasks include an `RRULE` matching bun-do's recurrence rules. Filter by task types with `?types=` (e.g. `?types=payment,deadline`) or by tag with `?tag=`. Subscribe locally via `webcal://localhost:<port>/calendar.ics` or download the `.ics` file. Google Calendar cannot reach a local server, so Google users import the file.
 ## Stack
 
 | Layer | Tech |

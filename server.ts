@@ -1011,6 +1011,181 @@ async function handleRestoreBackup(req: Request): Promise<Response> {
   return json({ ok: true, restored: file });
 }
 
+// -- Calendar --
+
+const ICS_PRIORITY: Record<string, number> = {
+  P0: 1,
+  P1: 3,
+  P2: 5,
+  P3: 9,
+};
+
+const ICS_DOW = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+const textEncoder = new TextEncoder();
+
+function escapeIcsText(s: string): string {
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|\r|\n/g, "\\n");
+}
+
+function foldIcsLine(line: string): string {
+  if (textEncoder.encode(line).length <= 75) return line;
+
+  const lines: string[] = [];
+  let current = "";
+  let currentBytes = 0;
+  let maxBytes = 75;
+
+  for (const ch of line) {
+    const chBytes = textEncoder.encode(ch).length;
+    if (currentBytes + chBytes > maxBytes) {
+      lines.push(current);
+      current = ch;
+      currentBytes = chBytes;
+      maxBytes = 74;
+    } else {
+      current += ch;
+      currentBytes += chBytes;
+    }
+  }
+  if (current) lines.push(current);
+  return lines[0] + "\r\n" + lines.slice(1).map((l) => " " + l).join("\r\n");
+}
+
+function nextDay(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + 1);
+  const ny = date.getUTCFullYear();
+  const nm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const nd = String(date.getUTCDate()).padStart(2, "0");
+  return `${ny}${nm}${nd}`;
+}
+
+function byMonthDayClamp(day: number): string {
+  if (day <= 28) return `BYMONTHDAY=${day}`;
+  const days: number[] = [];
+  for (let i = 28; i <= day; i++) {
+    days.push(i);
+  }
+  return `BYMONTHDAY=${days.join(",")};BYSETPOS=-1`;
+}
+
+function formatRRule(r: Recurrence, dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const dow = date.getUTCDay() === 0 ? 6 : date.getUTCDay() - 1;
+  const intervalPart = r.interval && r.interval > 1 ? `;INTERVAL=${r.interval}` : "";
+
+  switch (r.type) {
+    case "daily":
+      return `FREQ=DAILY${intervalPart}`;
+    case "weekdays":
+      return "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR";
+    case "weekly": {
+      const targetDow = r.dow ?? dow;
+      return `FREQ=WEEKLY${intervalPart};BYDAY=${ICS_DOW[targetDow] ?? "MO"}`;
+    }
+    case "monthly": {
+      const targetDay = r.day ?? d;
+      return `FREQ=MONTHLY${intervalPart};${byMonthDayClamp(targetDay)}`;
+    }
+    case "yearly": {
+      const targetMonth = r.month ?? m;
+      const targetDay = r.day ?? d;
+      return `FREQ=YEARLY${intervalPart};BYMONTH=${targetMonth};${byMonthDayClamp(targetDay)}`;
+    }
+  }
+}
+
+function buildCalendarFeed(taskList: Task[]): string {
+  const dtstamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}/, "");
+
+  const lines: string[] = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//bun-do//EN",
+    "CALSCALE:GREGORIAN",
+    "X-WR-CALNAME:bun-do",
+  ];
+
+  for (const task of taskList) {
+    lines.push("BEGIN:VEVENT");
+    lines.push(`UID:${task.id}@bun-do`);
+    lines.push(`DTSTAMP:${dtstamp}`);
+    lines.push(`DTSTART;VALUE=DATE:${task.date.replace(/-/g, "")}`);
+    lines.push(`DTEND;VALUE=DATE:${nextDay(task.date)}`);
+
+    const summary =
+      task.type === "payment" && task.amount
+        ? `${task.title} - ${task.currency || "CHF"} ${task.amount}`
+        : task.title;
+    lines.push(`SUMMARY:${escapeIcsText(summary)}`);
+
+    if (task.notes) {
+      lines.push(`DESCRIPTION:${escapeIcsText(task.notes)}`);
+    }
+
+    if (task.tags && task.tags.length > 0) {
+      lines.push(`CATEGORIES:${task.tags.join(",")}`);
+    }
+
+    lines.push(`PRIORITY:${ICS_PRIORITY[task.priority] ?? 5}`);
+
+    if (task.recurrence) {
+      lines.push(`RRULE:${formatRRule(task.recurrence, task.date)}`);
+    }
+
+    if (task.type === "reminder") {
+      lines.push("BEGIN:VALARM");
+      lines.push("ACTION:DISPLAY");
+      lines.push("TRIGGER:PT9H");
+      lines.push(`DESCRIPTION:${escapeIcsText(task.title)}`);
+      lines.push("END:VALARM");
+    }
+
+    lines.push("END:VEVENT");
+  }
+
+  lines.push("END:VCALENDAR");
+
+  return lines.map(foldIcsLine).join("\r\n") + "\r\n";
+}
+
+function handleCalendar(url: URL): Response {
+  let list = tasks.filter((t) => {
+    if (t.done) return false;
+    if (!t.date || !t.date.trim()) return false;
+    if (t.type === "task" && t.priority === "P3") return false;
+    return true;
+  });
+
+  if (url.searchParams.has("types")) {
+    const allowedTypes = new Set(
+      url.searchParams.get("types")!.split(",").map((s) => s.trim()).filter(Boolean)
+    );
+    list = list.filter((t) => allowedTypes.has(t.type));
+  }
+
+  if (url.searchParams.has("tag")) {
+    const tag = normalizeTag(url.searchParams.get("tag") ?? "");
+    list = tag ? list.filter((t) => t.tags.includes(tag)) : [];
+  }
+
+  const content = buildCalendarFeed(sortTasks(list));
+  return new Response(content, {
+    headers: {
+      "Content-Type": "text/calendar; charset=utf-8",
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -1046,6 +1221,10 @@ async function handleRequest(req: Request): Promise<Response> {
       return new Response(file, { headers: { "Content-Type": MIME[ext] || "application/octet-stream" } });
     }
     return new Response("Not found", { status: 404 });
+  }
+
+  if (path === "/calendar.ics" && method === "GET") {
+    return handleCalendar(url);
   }
 
   // -- CSRF check for mutating API requests --

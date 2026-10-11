@@ -53,6 +53,7 @@ POST   /api/projects/:id/entries         add progress entry
 DELETE /api/projects/:id/entries/:eid    delete entry
 GET    /api/backups                      list backups (newest first)
 POST   /api/backups/restore              restore backup ({ file })
+GET    /calendar.ics                     calendar feed (.ics, optional ?types=, ?tag=)
 ```
 
 ## Task shape
@@ -82,6 +83,26 @@ Before the first write of each local calendar day to `tasks.json` (and, separate
 `POST /api/backups/restore` with `{"file": "<name>"}` accepts only a bare name of the backup pattern. It first saves the current file as `<kind>-YYYY-MM-DDTHHMMSS-before-restore.json`, then loads the backup into memory and onto disk.
 
 At startup, an unreadable or invalidly shaped `tasks.json` or `projects.json` is renamed to `<kind>.corrupt-<YYYYMMDD-HHMMSS>.json` (byte-identical, never overwritten), the path is logged, and the newest readable backup of that kind is loaded (or an empty list if none).
+
+## Calendar feed (.ics)
+
+`GET /calendar.ics` returns an RFC 5545 calendar feed (`Content-Type: text/calendar; charset=utf-8`) of all open, dated tasks (backlog items stay out) as all-day events:
+- `UID`: `<task id>@bun-do`
+- `DTSTAMP`: creation timestamp (UTC)
+- `DTSTART;VALUE=DATE`: task date (`YYYYMMDD`)
+- `DTEND;VALUE=DATE`: next day (`YYYYMMDD`)
+- `SUMMARY`: task title (for payments: `Title - Currency Amount`, e.g. `Electricity bill - CHF 120.50`)
+- `DESCRIPTION`: notes (omitted if empty)
+- `CATEGORIES`: tags (omitted if none)
+- `PRIORITY`: mapped from priority (P0: 1, P1: 3, P2: 5, P3: 9)
+- `VALARM`: reminders get one display alarm at 09:00 local time (`ACTION:DISPLAY`, `TRIGGER:PT9H`)
+- `RRULE`: recurring tasks include an RFC 5545 rule matching bun-do's dates (daily `FREQ=DAILY;INTERVAL=N`, weekdays `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR`, weekly `FREQ=WEEKLY;INTERVAL=N;BYDAY=<dow>`, monthly/yearly with `BYMONTHDAY` clamp forms for short months)
+
+Query parameters:
+- `types`: comma-separated list of types to include (e.g. `?types=payment,deadline`)
+- `tag`: tag filter (normalised like task tags, e.g. `?tag=work`)
+
+Subscription URL: `webcal://localhost:<port>/calendar.ics`. Google Calendar cannot reach a local server, so Google users import the `.ics` file.
 
 ## Common agent operations
 

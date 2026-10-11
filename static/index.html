@@ -1197,6 +1197,7 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
         <button class="btn-ghost" @click="clearDone()" title="Clear completed">Clear done</button>
       </template>
       <button class="btn-ghost" @click="openBackupsModal()" title="Backups">Backups</button>
+      <button class="btn-ghost" @click="showCalendarModal = true" title="Calendar feed">Calendar</button>
       <button class="btn-ghost" @click="adjustFontSize(-10)" title="Decrease font size" style="font-size:0.75rem;padding:5px 6px">A&#8722;</button>
       <button class="btn-ghost" @click="adjustFontSize(10)" title="Increase font size" style="font-size:0.75rem;padding:5px 6px">A+</button>
       <button class="btn-ghost" @click="togglePriorityMode()" :title="priorityMode === 'priority' ? 'Switch to Eisenhower matrix' : 'Switch to P0–P3 priorities'" x-text="priorityMode === 'priority' ? 'P0–P3' : 'Eisenhower'"></button>
@@ -1965,6 +1966,34 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
     </div>
   </div>
 
+  <!-- Calendar Modal -->
+  <div class="modal-backdrop" x-show="showCalendarModal" x-transition.opacity @click.self="showCalendarModal = false" style="display:none">
+    <div class="modal" @click.stop x-show="showCalendarModal" x-transition style="max-width:560px;width:95%">
+      <div class="modal-title">
+        Calendar
+        <button class="modal-close" @click="showCalendarModal = false">&times;</button>
+      </div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:0.85rem;color:var(--text-muted)">
+          Subscribe in Apple Calendar, Outlook, or Thunderbird:
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" class="form-input" readonly :value="calendarWebcalUrl()" @click="$el.select()" style="font-family:monospace;font-size:0.8rem">
+          <button type="button" class="btn-ghost" @click="copyCalendarUrl()" style="flex-shrink:0">Copy</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <a href="/calendar.ics" download="bun-do.ics" class="btn-ghost" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">Download .ics</a>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-muted);line-height:1.4">
+          Google Calendar cannot reach a local server, so Google users import the file.
+        </p>
+      </div>
+      <div class="modal-actions" style="margin-top:16px">
+        <button type="button" class="btn-ghost" @click="showCalendarModal = false">Close</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -2040,6 +2069,7 @@ function todoApp() {
     showModal: false,
     showProjectModal: false,
     showBackupsModal: false,
+    showCalendarModal: false,
     loadingBackups: false,
     backups: [],
     selectedCalDay: null,
@@ -3043,6 +3073,19 @@ function todoApp() {
       }
     },
 
+    calendarWebcalUrl() {
+      const port = window.location.port ? ':' + window.location.port : '';
+      return 'webcal://localhost' + port + '/calendar.ics';
+    },
+
+    copyCalendarUrl() {
+      const url = this.calendarWebcalUrl();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).catch(() => {});
+      }
+      this.toast('Copied calendar address');
+    },
+
     // ── Backlog Drag & Drop ────────────────
     _backlogSortables: {},
     _initBacklogSortable(refName) {
@@ -3185,6 +3228,7 @@ function todoApp() {
         if (this.showModal) { this.showModal = false; return; }
         if (this.showProjectModal) { this.showProjectModal = false; return; }
         if (this.showBackupsModal) { this.showBackupsModal = false; return; }
+        if (this.showCalendarModal) { this.showCalendarModal = false; return; }
         if (this.editingTaskId) { this.editingTaskId = null; return; }
         if (this.editingNotesId) { this.editingNotesId = null; return; }
         if (this.editingSubtaskId) { this.editingSubtaskId = null; return; }

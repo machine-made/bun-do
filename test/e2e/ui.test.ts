@@ -216,4 +216,34 @@ describe.skipIf(!enabled)("web interface", () => {
       await page.close();
     }
   });
+  test("calendar entry in header opens subscription dialog with webcal url, copy button, and download link", async () => {
+    const { page, errors } = await openApp();
+    try {
+      await page.getByRole("button", { name: "Calendar", exact: true }).click();
+      const modal = page.locator(".modal", { hasText: "Calendar" });
+      await modal.waitFor({ state: "visible", timeout: 3000 });
+
+      const input = modal.locator("input.form-input");
+      const val = await input.inputValue();
+      expect(val).toBe(`webcal://localhost:${server.port}/calendar.ics`);
+
+      const copyBtn = modal.getByRole("button", { name: "Copy" });
+      expect(await copyBtn.isVisible()).toBe(true);
+
+      const downloadLink = modal.getByRole("link", { name: "Download .ics" });
+      expect(await downloadLink.isVisible()).toBe(true);
+      expect(await downloadLink.getAttribute("href")).toBe("/calendar.ics");
+
+      expect(await modal.textContent()).toContain(
+        "Google Calendar cannot reach a local server, so Google users import the file."
+      );
+
+      await modal.getByRole("button", { name: "Close" }).click();
+      await modal.waitFor({ state: "hidden", timeout: 3000 });
+
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  });
 });

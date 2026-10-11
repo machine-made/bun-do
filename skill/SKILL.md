@@ -59,6 +59,7 @@ bun-do is a local-first todo app. REST API at `http://localhost:8000`. All data 
 | Delete log entry | DELETE | `/api/projects/{id}/entries/{eid}` |
 | List backups | GET | `/api/backups` |
 | Restore backup | POST | `/api/backups/restore` |
+| Calendar feed | GET | `/calendar.ics` (optional `?types=`, `?tag=`) |
 ## Task fields
 
 ```json
@@ -91,6 +92,18 @@ The server automatically backs up `tasks.json` and `projects.json` to `BUNDO_DAT
 - **Listing**: `GET /api/backups` returns backups newest first (`name`, `file`, `kind`, `date`, `size`, `entries`). CLI: `bun-do backups`.
 - **Restoring**: `POST /api/backups/restore` with `{"file": "<name>"}` (must match backup filename pattern). Saves current data to `<kind>-YYYY-MM-DDTHHMMSS-before-restore.json` first, then loads backup into memory and disk. CLI: `bun-do restore <file>`.
 - **Corrupt file safety**: If a data file fails to parse or has the wrong shape at startup, it is renamed to `<kind>.corrupt-<YYYYMMDD-HHMMSS>.json` (never overwritten), and the newest readable backup is loaded.
+
+## Calendar feed (.ics)
+
+`GET /calendar.ics` serves an RFC 5545 calendar feed (`Content-Type: text/calendar; charset=utf-8`) for calendar subscriptions (Apple Calendar, Outlook, Thunderbird).
+
+- Includes open, dated tasks (backlog items `type=task` + `priority=P3` stay out).
+- Events are all-day (`DTSTART;VALUE=DATE`, `DTEND;VALUE=DATE` next day).
+- Properties: `UID:<id>@bun-do`, `DTSTAMP`, `SUMMARY` (payments: `Title - Currency Amount`), `DESCRIPTION` (notes), `CATEGORIES` (tags), `PRIORITY` (P0: 1, P1: 3, P2: 5, P3: 9).
+- Reminders get one `VALARM` display alarm at 09:00 local time (`TRIGGER:PT9H`).
+- Recurring tasks get an `RRULE` matching bun-do's recurrence rules.
+- Optional query parameters: `types=` (comma-separated list of types) and `tag=` (normalised tag filter).
+- Subscribe locally at `webcal://localhost:<port>/calendar.ics` or download the `.ics` file. Google Calendar cannot reach a local server, so Google users import the file.
 
 ## Curl patterns
 
