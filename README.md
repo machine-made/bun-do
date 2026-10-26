@@ -216,7 +216,7 @@ one for agents in [`AGENTS.md`](AGENTS.md).
 ## Development
 
 ```bash
-git clone https://github.com/ricardofrantz/bun-do.git
+git clone https://github.com/machine-made/bun-do.git
 cd bun-do
 bun install
 bun run dev     # server on :8000, restarts on file changes
