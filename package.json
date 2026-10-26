@@ -46,9 +46,12 @@
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ricardofrantz/bun-do.git"
+    "url": "git+https://github.com/machine-made/bun-do.git"
   },
-  "homepage": "https://github.com/ricardofrantz/bun-do#readme",
+  "bugs": {
+    "url": "https://github.com/machine-made/bun-do/issues"
+  },
+  "homepage": "https://github.com/machine-made/bun-do#readme",
   "engines": {
     "bun": ">=1.0.0"
   },
