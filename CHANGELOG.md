@@ -16,6 +16,7 @@ v1.4.1 and v1.4.2 were tagged but never reached npm; this release carries their 
 - `bun run screenshots` takes the README screenshots from the example tasks.
 
 ### Changed
+- **New npm name: `@machine-made/bun-do`.** Install with `bun install -g @machine-made/bun-do`. The old `bun-do` package stops at 1.4.0 and is marked deprecated. The commands (`bun-do`, `bun-do-mcp`) do not change.
 - **The page works by keyboard, with a screen reader, and on a phone.** Every control is a button with a name that says which task it acts on; checkboxes report their state; dialogs are named, take focus on their first field, give it back when they close, and make the page behind them inactive. Text meets WCAG AA contrast in both themes and the focus ring is always visible; reduced-motion settings turn transitions off. At 600 px and narrower the header is two rows that scroll sideways, controls are at least 44 px, task buttons move under the title, dialogs fill the screen, and the page no longer scrolls sideways (it was 469 px wide at 360 px). The light theme's orange is darker to meet contrast.
 - Every view shows an empty state with an action, also when search or the tag filter hides everything.
 - The README is rewritten around the features, with new screenshots.

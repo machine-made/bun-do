@@ -21,11 +21,11 @@ dependencies.
 ## Quick start
 
 ```bash
-bun install -g bun-do
+bun install -g @machine-made/bun-do
 bun-do open     # start the server in the background and open http://localhost:8000
 ```
 
-`bunx bun-do` runs it without installing. Data goes to `~/.bun-do`. A new install starts empty
+`bunx @machine-made/bun-do` runs it without installing. Data goes to `~/.bun-do`. A new install starts empty
 with a short guide and a button that loads example tasks.
 
 ## Features
