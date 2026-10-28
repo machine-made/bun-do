@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.5.1] — 2026-10-28
+
+This is the first npm release since v1.4.0. It carries the changes of v1.4.1, v1.4.2 and v1.5.0, which were tagged but never reached npm. The headlines:
+- **Security:** the server listens on 127.0.0.1 only, refuses foreign Host headers, and refuses writes from foreign origins.
+- **Data safety:** an unreadable `tasks.json` is kept and the newest backup is loaded; daily backups with restore; npm releases use trusted publishing.
+- **New:** tags, more repeat rules, a calendar feed at `/calendar.ics`, a first-run guide, and a keyboard-, screen-reader- and phone-friendly page.
+
+See the v1.5.0, v1.4.2 and v1.4.1 entries below for the full lists.
+
+### Changed
+- The repository, homepage and docs links now point to github.com/machine-made/bun-do.
+
+---
+
 ## [v1.5.0] — 2026-10-11
 
 v1.4.1 and v1.4.2 were tagged but never reached npm; this release carries their changes too.
