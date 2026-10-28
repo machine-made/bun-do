@@ -1,6 +1,6 @@
 {
   "name": "@machine-made/bun-do",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Local-first todo app for humans and AI agents — REST API, MCP server, Claude/OpenClaw skill. Bun + Alpine.js.",
   "type": "module",
   "bin": {
