@@ -17,7 +17,7 @@ description: >
 
 bun-do is a local-first todo app. REST API at `http://localhost:8000`. All data persists to JSON on disk. Nothing leaves your machine.
 
-**Start**: `bun-do start` (install: `bun install -g bun-do`)
+**Start**: `bun-do start` (install: `bun install -g @machine-made/bun-do`)
 **Data**: `~/.bun-do/` (override: `BUNDO_DATA_DIR`)
 **Port**: 8000 (override: `--port=PORT`)
 

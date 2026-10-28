@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **New npm name: `@machine-made/bun-do`.** Install with `bun install -g @machine-made/bun-do`. The old `bun-do` package stops at 1.5.1 and is marked deprecated. The commands (`bun-do`, `bun-do-mcp`) do not change.
+
 ## [v1.5.1] — 2026-10-28
 
 This is the first npm release since v1.4.0. It carries the changes of v1.4.1, v1.4.2 and v1.5.0, which were tagged but never reached npm. The headlines:
