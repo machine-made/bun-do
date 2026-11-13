@@ -1,15 +1,14 @@
-# bun-do
+[![CI](https://github.com/machine-made/bun-do/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/machine-made/bun-do/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@machine-made/bun-do)](https://www.npmjs.com/package/@machine-made/bun-do)
+![Bun](https://img.shields.io/badge/runtime-Bun-f9f1e1?logo=bun)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/lang-TypeScript-3178c6?logo=typescript&logoColor=white)
+![Alpine.js](https://img.shields.io/badge/frontend-Alpine.js-77c1d2?logo=alpine.js&logoColor=white)
 
-A local todo app built on [Bun](https://bun.sh). Your tasks live in plain JSON files on your own
+`bun-do` is a local todo app built on [Bun](https://bun.sh). Your tasks live in plain JSON files on your own
 computer, and you manage them in the browser, from the command line, or through an AI agent
 (REST API, MCP server, Claude Code and OpenClaw skill). No account, no cloud, no runtime
 dependencies.
-
-![Bun](https://img.shields.io/badge/runtime-Bun-f9f1e1?logo=bun)
-![TypeScript](https://img.shields.io/badge/lang-TypeScript-3178c6?logo=typescript&logoColor=white)
-![Alpine.js](https://img.shields.io/badge/frontend-Alpine.js-77c1d2?logo=alpine.js&logoColor=white)
-![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)
-![npm](https://img.shields.io/npm/v/@machine-made/bun-do)
 
 ![bun-do month view, dark theme](bun-do.png)
 
