@@ -9,7 +9,7 @@ dependencies.
 ![TypeScript](https://img.shields.io/badge/lang-TypeScript-3178c6?logo=typescript&logoColor=white)
 ![Alpine.js](https://img.shields.io/badge/frontend-Alpine.js-77c1d2?logo=alpine.js&logoColor=white)
 ![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)
-![npm](https://img.shields.io/npm/v/bun-do)
+![npm](https://img.shields.io/npm/v/@machine-made/bun-do)
 
 ![bun-do month view, dark theme](bun-do.png)
 
