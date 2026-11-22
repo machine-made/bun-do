@@ -1,5 +1,8 @@
 # Fails when cubic did not complete a review, or when CodeRabbit was off or errored.
 # Passes with a warning when CodeRabbit is only rate limited.
+# Passes with a warning when cubic's review quota is used up and CodeRabbit reviewed this
+# commit (decision 0023: a review bot out of quota does not block a merge). Fails when
+# neither bot reviewed.
 # Reads check runs only. Check titles are matched as text: update them here
 # when a vendor renames one.
 name: review-gate
@@ -67,21 +70,32 @@ jobs:
           cr_concl=$(jq -r '.conclusion // "none"' <<<"$cr")
           cu_title=$(jq -r 'if .status=="completed" then .title else "missing" end' <<<"$cu")
           cu_concl=$(jq -r '.conclusion // "none"' <<<"$cu")
-          if [ "$cu_title" != "AI review completed" ] || [ "$cu_concl" != success ]; then
-            echo "::error::cubic did not complete a review: $cu_title ($cu_concl)"; exit 1
-          fi
+          cubic_out=false
+          case "$cu_title" in
+            *"limit reached"*) cubic_out=true ;;      # cubic's review quota is used up: CodeRabbit must review
+            *) if [ "$cu_title" != "AI review completed" ] || [ "$cu_concl" != success ]; then
+                 echo "::error::cubic did not complete a review: $cu_title ($cu_concl)"; exit 1
+               fi ;;
+          esac
           case "$cr_concl" in
             failure|cancelled|timed_out|action_required|stale|none) echo "::error::CodeRabbit check did not pass: $cr_title ($cr_concl)"; exit 1 ;;
           esac
           case "$cr_title" in
             "Finished")
-              [ "$cr_concl" = success ] || { echo "::error::CodeRabbit finished without success ($cr_concl)"; exit 1; } ;;
-            "Review rate limited") echo "::warning::CodeRabbit rate limited; cubic reviewed." ;;
+              [ "$cr_concl" = success ] || { echo "::error::CodeRabbit finished without success ($cr_concl)"; exit 1; }
+              if [ "$cubic_out" = true ]; then echo "::warning::cubic is out of review quota; CodeRabbit reviewed."; fi ;;
+            "Review rate limited")
+              if [ "$cubic_out" = true ]; then
+                echo "::error::Neither bot reviewed: cubic is out of quota and CodeRabbit is rate limited."; exit 1
+              fi
+              echo "::warning::CodeRabbit rate limited; cubic reviewed." ;;
             "Path filters excluded"*|"No files to review") echo "::notice::CodeRabbit: $cr_title" ;;
             # CodeRabbit reviews the opening push only (auto_incremental_review false); cubic reviews every push.
             # Accept the skip only when CodeRabbit finished a review on an earlier commit of this PR.
             "Review skipped: incremental reviews are disabled"|"Incremental review skipped")
-              if cr_reviewed_before; then
+              if [ "$cubic_out" = true ]; then
+                echo "::error::cubic is out of quota and CodeRabbit skipped this commit; comment '@coderabbitai review', then re-run this job once that review has finished."; exit 1
+              elif cr_reviewed_before; then
                 echo "::warning::CodeRabbit reviews the opening push only; comment '@coderabbitai review' for this commit."
               else
                 echo "::error::CodeRabbit never finished a review on this PR; comment '@coderabbitai full review', then re-run this job once that review has finished."; exit 1
