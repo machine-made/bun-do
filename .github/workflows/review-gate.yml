@@ -75,7 +75,7 @@ jobs:
               if [ "$cr_title" = "Finished" ] && [ "$cr_concl" = success ]; then
                 echo "::warning::cubic is out of review quota; CodeRabbit reviewed this commit."; exit 0
               fi
-              echo "::error::cubic is out of review quota and CodeRabbit did not review this commit: $cr_title ($cr_concl)"; exit 1 ;;
+              echo "::error::cubic is out of review quota and CodeRabbit did not review this commit: $cr_title ($cr_concl). Comment '@coderabbitai full review', then re-run this job once that review has finished."; exit 1 ;;
           esac
           if [ "$cu_title" != "AI review completed" ] || [ "$cu_concl" != success ]; then
             echo "::error::cubic did not complete a review: $cu_title ($cu_concl)"; exit 1
